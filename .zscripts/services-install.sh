@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 配置项
-ROOT_DIR="/home/z/my-project/mini-services"
+ROOT_DIR="/home/z/my-project/services"
 
 main() {
     echo "🚀 开始批量安装依赖..."
@@ -17,7 +17,7 @@ main() {
     fail_count=0
     failed_projects=""
     
-    # 遍历 mini-services 目录下的所有文件夹
+    # 遍历 services 目录下的所有文件夹
     for dir in "$ROOT_DIR"/*; do
         # 检查是否是目录且包含 package.json
         if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then

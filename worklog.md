@@ -386,3 +386,38 @@ Stage Summary:
 - categories.json updated to match new directory structure (4 root categories, 0 uncategorized)
 - Python verification script: scripts/system/verify-restructure.py (151/151 pass)
 - Reusable method: Domain-driven directory structure + categories.json taxonomy + recursive auto-discovery
+
+---
+Task ID: 9
+Agent: Main
+Task: Restructure mini-services/ → services/mcp-server/ with proper tool folder structure
+
+Work Log:
+- Identified problem: "mini-services" was a vague name, all 8 MCP tools crammed in single tools.ts (509 lines), index.ts was 613 lines mixing SSE/auth/rate-limit/routing
+- Renamed mini-services/ → services/ (clear, descriptive name)
+- Split monolithic tools.ts into 8 individual tool files:
+  - tools/search-knowledge.ts
+  - tools/retrieve-knowledge.ts
+  - tools/build-context.ts
+  - tools/search-skills.ts
+  - tools/search-sops.ts
+  - tools/search-architecture.ts
+  - tools/search-security.ts
+  - tools/search-game-system.ts
+- Created tools/shared.ts (types, formatters, permission checks)
+- Created tools/index.ts (collects all tools, exports executeTool)
+- Split index.ts transport layer:
+  - transport/rate-limiter.ts (RateLimiter class)
+  - transport/sse-manager.ts (SSEConnectionManager class)
+  - auth/index.ts (extractApiKey, authenticate functions)
+- Updated .zscripts/ (dev.sh, build.sh, start.sh, services-*.sh) — all mini-services → services
+- Renamed .zscripts files: mini-services-start.sh → services-start.sh, etc.
+- Updated all source references (scripts, verification script)
+- MCP server tested: healthy, 8 tools, API connected
+- Full verification: 165/165 checks passed
+
+Stage Summary:
+- services/mcp-server/ now has proper modular structure: 8 tool files, shared module, transport layer, auth module
+- Each tool has its own file — easy to find, modify, test independently
+- Old monolithic files removed (tools.ts, 613-line index.ts)
+- MCP server fully working after restructure

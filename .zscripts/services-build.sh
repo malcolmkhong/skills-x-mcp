@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # 配置项
-ROOT_DIR="/home/z/my-project/mini-services"
-DIST_DIR="/tmp/build_fullstack_$BUILD_ID/mini-services-dist"
+ROOT_DIR="/home/z/my-project/services"
+DIST_DIR="/tmp/build_fullstack_$BUILD_ID/services-dist"
 
 main() {
     echo "🚀 开始批量构建..."
@@ -20,7 +20,7 @@ main() {
     success_count=0
     fail_count=0
     
-    # 遍历 mini-services 目录下的所有文件夹
+    # 遍历 services 目录下的所有文件夹
     for dir in "$ROOT_DIR"/*; do
         # 检查是否是目录且包含 package.json
         if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
@@ -59,9 +59,9 @@ main() {
         fi
     done
     
-    if [ -f ./.zscripts/mini-services-start.sh ]; then
-        cp ./.zscripts/mini-services-start.sh "$DIST_DIR/mini-services-start.sh"
-        chmod +x "$DIST_DIR/mini-services-start.sh"
+    if [ -f ./.zscripts/services-start.sh ]; then
+        cp ./.zscripts/services-start.sh "$DIST_DIR/services-start.sh"
+        chmod +x "$DIST_DIR/services-start.sh"
     fi
     
     echo ""

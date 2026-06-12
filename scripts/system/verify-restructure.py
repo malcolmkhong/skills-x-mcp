@@ -549,7 +549,7 @@ print("\n🔌 PHASE 7: MCP Server Health")
 print("-" * 50)
 
 test_name = "MCP server directory exists"
-mcp_dir = PROJECT_ROOT / "mini-services" / "mcp-server"
+mcp_dir = PROJECT_ROOT / "services" / "mcp-server"
 if mcp_dir.exists():
     results.ok(test_name)
 else:
@@ -561,13 +561,50 @@ if (mcp_dir / "package.json").exists():
 else:
     results.fail(test_name, f"Missing: {mcp_dir / 'package.json'}")
 
-# Check MCP server can resolve knowledge files
-test_name = "MCP server tools.ts references knowledge"
-tools_content = (mcp_dir / "tools.ts").read_text()
-if "knowledge" in tools_content.lower():
-    results.ok(test_name, "Knowledge references found in MCP tools")
+# Check MCP server has proper tool folder structure
+EXPECTED_TOOL_FILES = [
+    "tools/index.ts",
+    "tools/shared.ts",
+    "tools/search-knowledge.ts",
+    "tools/retrieve-knowledge.ts",
+    "tools/build-context.ts",
+    "tools/search-skills.ts",
+    "tools/search-sops.ts",
+    "tools/search-architecture.ts",
+    "tools/search-security.ts",
+    "tools/search-game-system.ts",
+]
+
+for tool_file in EXPECTED_TOOL_FILES:
+    test_name = f"MCP tool file: {tool_file}"
+    filepath = mcp_dir / tool_file
+    if filepath.exists():
+        results.ok(test_name)
+    else:
+        results.fail(test_name, f"Missing: {filepath}")
+
+# Check transport and auth modules
+for module_file in ["transport/rate-limiter.ts", "transport/sse-manager.ts", "auth/index.ts"]:
+    test_name = f"MCP module: {module_file}"
+    filepath = mcp_dir / module_file
+    if filepath.exists():
+        results.ok(test_name)
+    else:
+        results.fail(test_name, f"Missing: {filepath}")
+
+# Check no old monolithic tools.ts
+test_name = "Old monolithic tools.ts removed"
+if not (mcp_dir / "tools.ts").exists():
+    results.ok(test_name)
 else:
-    results.fail(test_name, "No knowledge references in MCP tools")
+    results.fail(test_name, "Old tools.ts still exists — should be in tools/ folder now")
+
+# Check no old mini-services directory
+test_name = "Old mini-services/ directory removed"
+if not (PROJECT_ROOT / "mini-services").exists():
+    results.ok(test_name)
+else:
+    results.fail(test_name, "Old mini-services/ directory still exists")
 
 # ─── Final Summary ─────────────────────────────────────────────────────────
 

@@ -787,7 +787,7 @@ async function testMCPServer() {
   }
 
   // Check MCP server files
-  const mcpServerPath = join(import.meta.dir, "..", "mini-services", "mcp-server", "index.ts");
+  const mcpServerPath = join(import.meta.dir, "..", "services", "mcp-server", "index.ts");
   if (existsSync(mcpServerPath)) {
     pass("MCP Server — files exist", mcpServerPath, cat);
   } else {

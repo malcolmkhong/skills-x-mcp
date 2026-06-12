@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # 配置项
-DIST_DIR="./mini-services-dist"
+DIST_DIR="./services-dist"
 
 # 存储所有子进程的 PID
 pids=""

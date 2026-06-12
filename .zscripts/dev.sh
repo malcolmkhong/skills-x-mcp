@@ -29,17 +29,17 @@ log_step_end() {
 }
 
 start_mini_services() {
-	local mini_services_dir="$PROJECT_DIR/mini-services"
+	local mini_services_dir="$PROJECT_DIR/services"
 	local started_count=0
 
-	log_step_start "Starting mini-services"
+	log_step_start "Starting services"
 	if [ ! -d "$mini_services_dir" ]; then
 		echo "Mini-services directory not found, skipping..."
-		log_step_end "Starting mini-services"
+		log_step_end "Starting services"
 		return 0
 	fi
 
-	echo "Found mini-services directory, scanning for sub-services..."
+	echo "Found services directory, scanning for sub-services..."
 
 	for service_dir in "$mini_services_dir"/*; do
 		if [ ! -d "$service_dir" ]; then
@@ -77,7 +77,7 @@ start_mini_services() {
 	done
 
 	echo "Mini-services startup completed. Started $started_count service(s)."
-	log_step_end "Starting mini-services"
+	log_step_end "Starting services"
 }
 
 wait_for_service() {
