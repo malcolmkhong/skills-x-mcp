@@ -70,9 +70,10 @@ export default function HomePage() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const seededRef = useRef(false)
 
-  // Seed database on first authenticated load if needed
+  // Seed database on first load if needed (runs for both authenticated and unauthenticated)
+  // This ensures the demo user exists before anyone tries to sign in
   useEffect(() => {
-    if (status !== 'authenticated' || seededRef.current) return
+    if (seededRef.current) return
     let cancelled = false
     const doSeed = async () => {
       try {
@@ -89,7 +90,7 @@ export default function HomePage() {
     }
     doSeed()
     return () => { cancelled = true }
-  }, [status])
+  }, [])
 
   const toggleTheme = useCallback(() => {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
