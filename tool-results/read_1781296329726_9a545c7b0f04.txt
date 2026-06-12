@@ -1,0 +1,640 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect } from 'react'
+     4→import { signIn } from 'next-auth/react'
+     5→import {
+     6→  Brain, Server, Search, Key, Zap, Shield, ArrowRight, Check,
+     7→  Github, Mail, ChevronDown, BarChart3, Database, Globe,
+     8→  Code2, Layers, Lock, Sparkles, BookOpen, Cpu, Menu, X,
+     9→} from 'lucide-react'
+    10→import { Button } from '@/components/ui/button'
+    11→import { Input } from '@/components/ui/input'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import { Card, CardContent } from '@/components/ui/card'
+    14→import { Separator } from '@/components/ui/separator'
+    15→
+    16→// ─── Login Dropdown Panel ────────────────────────────────────────────────────
+    17→
+    18→function LoginDropdown() {
+    19→  const [open, setOpen] = useState(false)
+    20→  const [email, setEmail] = useState('demo@industryx.io')
+    21→  const [password, setPassword] = useState('demo123')
+    22→  const [loading, setLoading] = useState(false)
+    23→  const [csrfToken, setCsrfToken] = useState('')
+    24→
+    25→  useEffect(() => {
+    26→    fetch('/api/auth/csrf')
+    27→      .then(r => r.json())
+    28→      .then(data => setCsrfToken(data.csrfToken))
+    29→      .catch(() => {})
+    30→  }, [])
+    31→
+    32→  return (
+    33→    <div className="relative">
+    34→      <Button
+    35→        onClick={() => setOpen(!open)}
+    36→        className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 text-sm font-medium"
+    37→      >
+    38→        Sign In
+    39→        <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
+    40→      </Button>
+    41→
+    42→      {open && (
+    43→        <>
+    44→          {/* Backdrop */}
+    45→          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+    46→
+    47→          {/* Dropdown Panel */}
+    48→          <div className="absolute right-0 top-12 z-50 w-80 bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
+    49→            <div className="p-4 border-b border-border">
+    50→              <h3 className="font-semibold text-sm">Welcome to IndustryX</h3>
+    51→              <p className="text-xs text-muted-foreground mt-0.5">Sign in to access your dashboard</p>
+    52→            </div>
+    53→
+    54→            <div className="p-4 space-y-3">
+    55→              {/* OAuth Buttons */}
+    56→              <div className="grid grid-cols-2 gap-2">
+    57→                <Button
+    58→                  variant="outline"
+    59→                  className="h-9 text-xs"
+    60→                  onClick={() => signIn('github', { callbackUrl: '/' })}
+    61→                >
+    62→                  <Github className="h-3.5 w-3.5 mr-1.5" />
+    63→                  GitHub
+    64→                </Button>
+    65→                <Button
+    66→                  variant="outline"
+    67→                  className="h-9 text-xs"
+    68→                  onClick={() => signIn('google', { callbackUrl: '/' })}
+    69→                >
+    70→                  <svg className="h-3.5 w-3.5 mr-1.5" viewBox="0 0 24 24">
+    71→                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+    72→                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+    73→                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+    74→                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    75→                  </svg>
+    76→                  Google
+    77→                </Button>
+    78→              </div>
+    79→
+    80→              <div className="relative">
+    81→                <div className="absolute inset-0 flex items-center">
+    82→                  <Separator className="w-full" />
+    83→                </div>
+    84→                <div className="relative flex justify-center text-[10px] uppercase">
+    85→                  <span className="bg-card px-2 text-muted-foreground">or use demo</span>
+    86→                </div>
+    87→              </div>
+    88→
+    89→              {/* Demo Login Form — native submission for proper cookie handling */}
+    90→              <form action="/api/auth/callback/demo" method="POST" className="space-y-2.5">
+    91→                <input type="hidden" name="csrfToken" value={csrfToken} />
+    92→                <div>
+    93→                  <Input
+    94→                    name="email"
+    95→                    type="email"
+    96→                    value={email}
+    97→                    onChange={(e) => setEmail(e.target.value)}
+    98→                    placeholder="demo@industryx.io"
+    99→                    className="h-9 text-sm"
+   100→                    required
+   101→                  />
+   102→                </div>
+   103→                <div>
+   104→                  <Input
+   105→                    name="password"
+   106→                    type="password"
+   107→                    value={password}
+   108→                    onChange={(e) => setPassword(e.target.value)}
+   109→                    placeholder="Password"
+   110→                    className="h-9 text-sm"
+   111→                    required
+   112→                  />
+   113→                </div>
+   114→                <Button
+   115→                  type="submit"
+   116→                  className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+   117→                >
+   118→                  <Mail className="h-3.5 w-3.5 mr-1.5" />
+   119→                  Demo Sign In
+   120→                </Button>
+   121→              </form>
+   122→
+   123→              <p className="text-[10px] text-center text-muted-foreground">
+   124→                Demo: <span className="font-mono">demo@industryx.io</span> / <span className="font-mono">demo123</span>
+   125→              </p>
+   126→            </div>
+   127→          </div>
+   128→        </>
+   129→      )}
+   130→    </div>
+   131→  )
+   132→}
+   133→
+   134→// ─── Landing Page ────────────────────────────────────────────────────────────
+   135→
+   136→const FEATURES = [
+   137→  {
+   138→    icon: Brain,
+   139→    title: 'AI-Native Knowledge',
+   140→    desc: 'Structured JSON Knowledge Units — not markdown. Built for AI agents, not humans reading files.',
+   141→    color: 'text-emerald-600',
+   142→    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+   143→  },
+   144→  {
+   145→    icon: Search,
+   146→    title: 'Semantic Retrieval',
+   147→    desc: 'Vector search + keyword match + category + intent scoring. Only retrieve what\'s relevant.',
+   148→    color: 'text-sky-600',
+   149→    bg: 'bg-sky-50 dark:bg-sky-950/30',
+   150→  },
+   151→  {
+   152→    icon: Server,
+   153→    title: 'MCP Server',
+   154→    desc: 'Remote MCP server over SSE. Connect Claude Code, Cursor, VS Code, or any MCP-compatible agent.',
+   155→    color: 'text-violet-600',
+   156→    bg: 'bg-violet-50 dark:bg-violet-950/30',
+   157→  },
+   158→  {
+   159→    icon: Zap,
+   160→    title: 'Token Optimization',
+   161→    desc: 'Context builder with token budget. Reduce tokens. Reduce context size. Improve AI quality.',
+   162→    color: 'text-amber-600',
+   163→    bg: 'bg-amber-50 dark:bg-amber-950/30',
+   164→  },
+   165→  {
+   166→    icon: Key,
+   167→    title: 'API Key Management',
+   168→    desc: 'Generate, rotate, revoke API keys. Rate limiting. Usage tracking. Multiple keys per user.',
+   169→    color: 'text-rose-600',
+   170→    bg: 'bg-rose-50 dark:bg-rose-950/30',
+   171→  },
+   172→  {
+   173→    icon: Shield,
+   174→    title: 'Auth & Workspaces',
+   175→    desc: 'GitHub/Google OAuth. Team workspaces. Role-based access. Organization management.',
+   176→    color: 'text-teal-600',
+   177→    bg: 'bg-teal-50 dark:bg-teal-950/30',
+   178→  },
+   179→]
+   180→
+   181→const PLANS = [
+   182→  {
+   183→    name: 'Free',
+   184→    price: '$0',
+   185→    period: '/month',
+   186→    desc: 'Get started free forever',
+   187→    features: ['Personal account', 'Basic MCP access', '1,000 API requests/mo', '1 API key', '100 knowledge units', 'Community support'],
+   188→    cta: 'Get Started Free',
+   189→    popular: false,
+   190→  },
+   191→  {
+   192→    name: 'Pro',
+   193→    price: '$21',
+   194→    originalPrice: '$30',
+   195→    period: '/month',
+   196→    desc: 'Launch special — 30% off',
+   197→    features: ['50,000 API requests/mo', '5 API keys', '5,000 knowledge units', '5 team members', '3 workspaces', 'Advanced analytics', 'Priority retrieval'],
+   198→    cta: 'Start Pro Trial',
+   199→    popular: true,
+   200→  },
+   201→  {
+   202→    name: 'Ultra',
+   203→    price: '$100',
+   204→    originalPrice: '$250',
+   205→    period: '/month',
+   206→    desc: '60% off launch price',
+   207→    features: ['500,000 API requests/mo', '50 API keys', '50,000 knowledge units', '25 team members', '10 workspaces', 'Team workspaces', 'Premium support', 'Custom knowledge packs'],
+   208→    cta: 'Go Ultra',
+   209→    popular: false,
+   210→  },
+   211→]
+   212→
+   213→const KNOWLEDGE_TYPES = [
+   214→  { icon: Code2, label: 'Skills', desc: 'Reusable AI skills and capabilities' },
+   215→  { icon: BookOpen, label: 'SOPs', desc: 'Standard operating procedures' },
+   216→  { icon: Layers, label: 'Architecture', desc: 'System architecture documents' },
+   217→  { icon: Shield, label: 'Security', desc: 'Security standards & practices' },
+   218→  { icon: BarChart3, label: 'Economy', desc: 'Game economy & monetization' },
+   219→  { icon: Globe, label: 'Deployment', desc: 'CI/CD & deployment knowledge' },
+   220→  { icon: Database, label: 'Standards', desc: 'UI/UX, backend, frontend standards' },
+   221→  { icon: Cpu, label: 'Analytics', desc: 'Analytics & live ops knowledge' },
+   222→]
+   223→
+   224→const MCP_CLIENTS = [
+   225→  { name: 'Claude Code', desc: 'Add to claude_desktop_config.json' },
+   226→  { name: 'Cursor', desc: 'Add to MCP settings with SSE transport' },
+   227→  { name: 'VS Code', desc: 'Use the MCP extension for VS Code' },
+   228→  { name: 'OpenCode', desc: 'Configure SSE endpoint in settings' },
+   229→  { name: 'Codex', desc: 'Connect via MCP protocol adapter' },
+   230→  { name: 'Custom Agents', desc: 'SSE + JSON-RPC 2.0 standard' },
+   231→]
+   232→
+   233→export default function LandingPage() {
+   234→  const [mobileMenu, setMobileMenu] = useState(false)
+   235→
+   236→  return (
+   237→    <div className="min-h-screen flex flex-col bg-background">
+   238→      {/* ─── Navbar ──────────────────────────────────────────────────── */}
+   239→      <header className="sticky top-0 z-30 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+   240→        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+   241→          <div className="flex items-center gap-2.5">
+   242→            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
+   243→              <Brain className="h-4.5 w-4.5 text-white" />
+   244→            </div>
+   245→            <div>
+   246→              <span className="font-bold text-sm">IndustryX</span>
+   247→              <span className="text-[10px] text-muted-foreground ml-1.5 hidden sm:inline">Skills × MCP</span>
+   248→            </div>
+   249→          </div>
+   250→
+   251→          {/* Desktop Nav */}
+   252→          <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
+   253→            <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+   254→            <a href="#knowledge" className="hover:text-foreground transition-colors">Knowledge</a>
+   255→            <a href="#mcp" className="hover:text-foreground transition-colors">MCP Server</a>
+   256→            <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+   257→          </nav>
+   258→
+   259→          <div className="flex items-center gap-3">
+   260→            <LoginDropdown />
+   261→
+   262→            {/* Mobile menu toggle */}
+   263→            <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden" onClick={() => setMobileMenu(!mobileMenu)}>
+   264→              {mobileMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+   265→            </Button>
+   266→          </div>
+   267→        </div>
+   268→
+   269→        {/* Mobile nav */}
+   270→        {mobileMenu && (
+   271→          <div className="md:hidden border-t border-border bg-card px-4 py-3 space-y-2 text-sm">
+   272→            <a href="#features" className="block py-1.5 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenu(false)}>Features</a>
+   273→            <a href="#knowledge" className="block py-1.5 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenu(false)}>Knowledge</a>
+   274→            <a href="#mcp" className="block py-1.5 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenu(false)}>MCP Server</a>
+   275→            <a href="#pricing" className="block py-1.5 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenu(false)}>Pricing</a>
+   276→          </div>
+   277→        )}
+   278→      </header>
+   279→
+   280→      {/* ─── Hero ────────────────────────────────────────────────────── */}
+   281→      <section className="relative overflow-hidden">
+   282→        {/* Gradient background */}
+   283→        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/20" />
+   284→        <div className="absolute top-20 left-1/4 w-72 h-72 bg-emerald-200/30 dark:bg-emerald-800/10 rounded-full blur-3xl" />
+   285→        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-teal-200/20 dark:bg-teal-800/10 rounded-full blur-3xl" />
+   286→
+   287→        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-20 md:py-28 text-center">
+   288→          <Badge variant="outline" className="mb-6 px-3 py-1 text-xs border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30">
+   289→            <Sparkles className="h-3 w-3 mr-1.5" />
+   290→            Skills × MCP — AI-Native Knowledge Platform
+   291→          </Badge>
+   292→
+   293→          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
+   294→            One MCP Server.
+   295→            <br />
+   296→            <span className="text-emerald-600 dark:text-emerald-400">One API Key.</span>
+   297→            <br />
+   298→            All Knowledge.
+   299→          </h1>
+   300→
+   301→          <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+   302→            Access all skills, SOPs, architecture docs, standards, and knowledge
+   303→            through a single intelligent retrieval platform. Reduce tokens. Reduce
+   304→            context size. Improve AI quality.
+   305→          </p>
+   306→
+   307→          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+   308→            <Button
+   309→              className="bg-emerald-600 hover:bg-emerald-700 text-white h-12 px-8 text-base font-medium"
+   310→              onClick={() => {
+   311→                const btn = document.querySelector('[data-login-trigger]') as HTMLButtonElement
+   312→                if (btn) btn.click()
+   313→              }}
+   314→            >
+   315→              Get Started Free
+   316→              <ArrowRight className="h-4 w-4 ml-2" />
+   317→            </Button>
+   318→            <Button variant="outline" className="h-12 px-8 text-base" asChild>
+   319→              <a href="#mcp">View MCP Setup</a>
+   320→            </Button>
+   321→          </div>
+   322→
+   323→          {/* Stats */}
+   324→          <div className="mt-12 flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground">
+   325→            <div className="flex items-center gap-2">
+   326→              <Database className="h-4 w-4 text-emerald-600" />
+   327→              <span><strong className="text-foreground">10K+</strong> Knowledge Units</span>
+   328→            </div>
+   329→            <div className="flex items-center gap-2">
+   330→              <Zap className="h-4 w-4 text-amber-600" />
+   331→              <span><strong className="text-foreground">&lt;100ms</strong> Search</span>
+   332→            </div>
+   333→            <div className="flex items-center gap-2">
+   334→              <Server className="h-4 w-4 text-violet-600" />
+   335→              <span><strong className="text-foreground">8</strong> MCP Tools</span>
+   336→            </div>
+   337→            <div className="flex items-center gap-2">
+   338→              <Lock className="h-4 w-4 text-rose-600" />
+   339→              <span><strong className="text-foreground">OAuth</strong> + API Keys</span>
+   340→            </div>
+   341→          </div>
+   342→        </div>
+   343→      </section>
+   344→
+   345→      {/* ─── Architecture Flow ───────────────────────────────────────── */}
+   346→      <section className="border-y border-border bg-card/50">
+   347→        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+   348→          <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+   349→            {[
+   350→              { label: 'AI Agent', icon: Cpu, color: 'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300' },
+   351→              { label: 'MCP Protocol', icon: Server, color: 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300' },
+   352→              { label: 'MCP Server', icon: Layers, color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' },
+   353→              { label: 'Knowledge Engine', icon: Brain, color: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' },
+   354→              { label: 'Vector Search', icon: Search, color: 'bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300' },
+   355→              { label: 'JSON Knowledge', icon: Database, color: 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300' },
+   356→            ].map((item, i) => (
+   357→              <React.Fragment key={item.label}>
+   358→                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${item.color}`}>
+   359→                  <item.icon className="h-3.5 w-3.5" />
+   360→                  {item.label}
+   361→                </div>
+   362→                {i < 5 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />}
+   363→              </React.Fragment>
+   364→            ))}
+   365→          </div>
+   366→        </div>
+   367→      </section>
+   368→
+   369→      {/* ─── Features ────────────────────────────────────────────────── */}
+   370→      <section id="features" className="py-20 md:py-24">
+   371→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   372→          <div className="text-center mb-14">
+   373→            <Badge variant="outline" className="mb-3 text-xs">Platform Features</Badge>
+   374→            <h2 className="text-3xl sm:text-4xl font-bold">Built for AI agents.<br />Managed by humans.</h2>
+   375→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Every feature designed for semantic retrieval — never load all knowledge into context.</p>
+   376→          </div>
+   377→
+   378→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+   379→            {FEATURES.map(f => {
+   380→              const Icon = f.icon
+   381→              return (
+   382→                <Card key={f.title} className="group hover:shadow-lg transition-all duration-200 border-border/50">
+   383→                  <CardContent className="p-6">
+   384→                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 ${f.bg}`}>
+   385→                      <Icon className={`h-5 w-5 ${f.color}`} />
+   386→                    </div>
+   387→                    <h3 className="font-semibold text-base mb-1.5">{f.title}</h3>
+   388→                    <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+   389→                  </CardContent>
+   390→                </Card>
+   391→              )
+   392→            })}
+   393→          </div>
+   394→        </div>
+   395→      </section>
+   396→
+   397→      {/* ─── Knowledge Types ─────────────────────────────────────────── */}
+   398→      <section id="knowledge" className="py-20 md:py-24 bg-card/50 border-y border-border">
+   399→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   400→          <div className="text-center mb-14">
+   401→            <Badge variant="outline" className="mb-3 text-xs">Knowledge System</Badge>
+   402→            <h2 className="text-3xl sm:text-4xl font-bold">AI-Native JSON Knowledge Units</h2>
+   403→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Replace markdown with structured, searchable, AI-optimized knowledge.</p>
+   404→          </div>
+   405→
+   406→          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+   407→            {KNOWLEDGE_TYPES.map(k => {
+   408→              const Icon = k.icon
+   409→              return (
+   410→                <div key={k.label} className="flex flex-col items-center text-center p-4 rounded-xl border border-border/50 bg-background hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+   411→                  <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center mb-2.5">
+   412→                    <Icon className="h-5 w-5 text-emerald-600" />
+   413→                  </div>
+   414→                  <h4 className="font-medium text-sm">{k.label}</h4>
+   415→                  <p className="text-xs text-muted-foreground mt-1">{k.desc}</p>
+   416→                </div>
+   417→              )
+   418→            })}
+   419→          </div>
+   420→
+   421→          {/* JSON Schema Preview */}
+   422→          <Card className="mt-10 max-w-2xl mx-auto">
+   423→            <CardContent className="p-5">
+   424→              <h4 className="font-mono text-xs font-semibold text-emerald-600 mb-3">knowledge/skills/ui-ux-pro-max.json</h4>
+   425→              <pre className="text-xs font-mono text-muted-foreground leading-relaxed overflow-x-auto">
+   426→{`{
+   427→  "slug": "ui-ux-pro-max",
+   428→  "title": "UI/UX Pro Max Standards",
+   429→  "category": "skills",
+   430→  "tags": ["ui", "ux", "design", "accessibility"],
+   431→  "intents": ["design ui", "improve ux", "accessibility audit"],
+   432→  "rules": ["Use semantic HTML", "44px min touch targets"],
+   433→  "antiPatterns": ["Inline styles", "!important overrides"],
+   434→  "implementationSteps": ["Audit current UI", ...],
+   435→  "dependencies": ["design-system-core"]
+   436→}`}
+   437→              </pre>
+   438→            </CardContent>
+   439→          </Card>
+   440→        </div>
+   441→      </section>
+   442→
+   443→      {/* ─── MCP Server ──────────────────────────────────────────────── */}
+   444→      <section id="mcp" className="py-20 md:py-24">
+   445→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   446→          <div className="text-center mb-14">
+   447→            <Badge variant="outline" className="mb-3 text-xs">MCP Protocol</Badge>
+   448→            <h2 className="text-3xl sm:text-4xl font-bold">Connect Any AI Agent</h2>
+   449→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">One MCP server. SSE transport. JSON-RPC 2.0. Your agents get knowledge on demand.</p>
+   450→          </div>
+   451→
+   452→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+   453→            {/* Tools */}
+   454→            <div>
+   455→              <h3 className="font-semibold mb-4 flex items-center gap-2">
+   456→                <Server className="h-4 w-4 text-emerald-600" />
+   457→                8 MCP Tools Available
+   458→              </h3>
+   459→              <div className="space-y-2">
+   460→                {[
+   461→                  { name: 'search_knowledge', desc: 'Hybrid search across all knowledge', params: 'query, limit?' },
+   462→                  { name: 'retrieve_knowledge', desc: 'Get a specific document by slug', params: 'slug' },
+   463→                  { name: 'build_context', desc: 'Build optimized AI context with token budget', params: 'query, maxDocuments?, maxTokenBudget?' },
+   464→                  { name: 'search_skills', desc: 'Search skills category', params: 'query, limit?' },
+   465→                  { name: 'search_sops', desc: 'Search SOPs category', params: 'query, limit?' },
+   466→                  { name: 'search_architecture', desc: 'Search architecture category', params: 'query, limit?' },
+   467→                  { name: 'search_security', desc: 'Search security category', params: 'query, limit?' },
+   468→                  { name: 'search_game_system', desc: 'Search game systems category', params: 'query, limit?' },
+   469→                ].map(tool => (
+   470→                  <div key={tool.name} className="flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+   471→                    <code className="text-xs font-mono text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded shrink-0">
+   472→                      {tool.name}
+   473→                    </code>
+   474→                    <div>
+   475→                      <p className="text-xs text-muted-foreground">{tool.desc}</p>
+   476→                      <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5">params: {tool.params}</p>
+   477→                    </div>
+   478→                  </div>
+   479→                ))}
+   480→              </div>
+   481→            </div>
+   482→
+   483→            {/* Clients */}
+   484→            <div>
+   485→              <h3 className="font-semibold mb-4 flex items-center gap-2">
+   486→                <Code2 className="h-4 w-4 text-violet-600" />
+   487→                Supported MCP Clients
+   488→              </h3>
+   489→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+   490→                {MCP_CLIENTS.map(client => (
+   491→                  <div key={client.name} className="p-3 rounded-lg border border-border/50 bg-card">
+   492→                    <p className="text-sm font-medium">{client.name}</p>
+   493→                    <p className="text-xs text-muted-foreground mt-0.5">{client.desc}</p>
+   494→                  </div>
+   495→                ))}
+   496→              </div>
+   497→
+   498→              {/* Connection snippet */}
+   499→              <Card className="bg-gray-950 text-gray-100">
+   500→                <CardContent className="p-4">
+   501→                  <p className="text-[10px] text-gray-400 mb-2 font-mono">{'// claude_desktop_config.json'}</p>
+   502→                  <pre className="text-xs font-mono leading-relaxed text-emerald-400">
+   503→{`{
+   504→  "mcpServers": {
+   505→    "industryx": {
+   506→      "url": "https://your-server.com/sse",
+   507→      "headers": {
+   508→        "Authorization": "Bearer ixk_your_api_key"
+   509→      }
+   510→    }
+   511→  }
+   512→}`}
+   513→                  </pre>
+   514→                </CardContent>
+   515→              </Card>
+   516→            </div>
+   517→          </div>
+   518→        </div>
+   519→      </section>
+   520→
+   521→      {/* ─── Token Savings ───────────────────────────────────────────── */}
+   522→      <section className="py-20 md:py-24 bg-emerald-600 text-white">
+   523→        <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
+   524→          <h2 className="text-3xl sm:text-4xl font-bold">Reduce Tokens. Improve Quality.</h2>
+   525→          <p className="mt-3 text-emerald-100 text-lg max-w-xl mx-auto">
+   526→            Instead of loading all knowledge into context, retrieve only what's relevant.
+   527→          </p>
+   528→
+   529→          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+   530→            {[
+   531→              { value: '80%+', label: 'Token Reduction', sub: 'vs. loading full knowledge base' },
+   532→              { value: '<100ms', label: 'Search Latency', sub: 'semantic vector search' },
+   533→              { value: '<500ms', label: 'Context Build', sub: 'including ranking & retrieval' },
+   534→            ].map(stat => (
+   535→              <div key={stat.label} className="p-6 rounded-xl bg-white/10 backdrop-blur-sm">
+   536→                <p className="text-4xl font-extrabold">{stat.value}</p>
+   537→                <p className="text-sm font-medium mt-1">{stat.label}</p>
+   538→                <p className="text-xs text-emerald-200 mt-1">{stat.sub}</p>
+   539→              </div>
+   540→            ))}
+   541→          </div>
+   542→        </div>
+   543→      </section>
+   544→
+   545→      {/* ─── Pricing ─────────────────────────────────────────────────── */}
+   546→      <section id="pricing" className="py-20 md:py-24">
+   547→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   548→          <div className="text-center mb-14">
+   549→            <Badge variant="outline" className="mb-3 text-xs">Simple Pricing</Badge>
+   550→            <h2 className="text-3xl sm:text-4xl font-bold">Start free. Scale infinitely.</h2>
+   551→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Launch special pricing — lock in discounts before they expire.</p>
+   552→          </div>
+   553→
+   554→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+   555→            {PLANS.map(plan => (
+   556→              <Card key={plan.name} className={`relative ${plan.popular ? 'border-emerald-300 dark:border-emerald-700 shadow-lg' : 'border-border/50'}`}>
+   557→                {plan.popular && (
+   558→                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+   559→                    <Badge className="bg-emerald-600 text-white text-[10px] px-2.5">Most Popular</Badge>
+   560→                  </div>
+   561→                )}
+   562→                <CardContent className="p-6">
+   563→                  <h3 className="font-bold text-lg">{plan.name}</h3>
+   564→                  <div className="mt-2 flex items-baseline gap-1">
+   565→                    <span className="text-3xl font-extrabold">{plan.price}</span>
+   566→                    <span className="text-muted-foreground text-sm">{plan.period}</span>
+   567→                    {plan.originalPrice && (
+   568→                      <span className="text-sm text-muted-foreground line-through ml-1">{plan.originalPrice}</span>
+   569→                    )}
+   570→                  </div>
+   571→                  <p className="text-xs text-muted-foreground mt-1">{plan.desc}</p>
+   572→
+   573→                  <Separator className="my-4" />
+   574→
+   575→                  <ul className="space-y-2 mb-6">
+   576→                    {plan.features.map(f => (
+   577→                      <li key={f} className="flex items-start gap-2 text-sm">
+   578→                        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+   579→                        <span>{f}</span>
+   580→                      </li>
+   581→                    ))}
+   582→                  </ul>
+   583→
+   584→                  <Button
+   585→                    className={`w-full ${plan.popular ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+   586→                    variant={plan.popular ? 'default' : 'outline'}
+   587→                  >
+   588→                    {plan.cta}
+   589→                  </Button>
+   590→                </CardContent>
+   591→              </Card>
+   592→            ))}
+   593→          </div>
+   594→
+   595→          <p className="text-center text-sm text-muted-foreground mt-6">
+   596→            <strong>Enterprise</strong> — Custom pricing with private MCP deployment, dedicated infrastructure, SSO, and SLA support. <a href="#" className="text-emerald-600 hover:underline">Contact us</a>
+   597→          </p>
+   598→        </div>
+   599→      </section>
+   600→
+   601→      {/* ─── CTA ─────────────────────────────────────────────────────── */}
+   602→      <section className="py-16 md:py-20 bg-card border-y border-border">
+   603→        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+   604→          <h2 className="text-2xl sm:text-3xl font-bold">Ready to supercharge your AI agents?</h2>
+   605→          <p className="mt-3 text-muted-foreground">One MCP server. One API key. Access all knowledge. Start free today.</p>
+   606→          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+   607→            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white h-11 px-8">
+   608→              Get Started Free
+   609→              <ArrowRight className="h-4 w-4 ml-2" />
+   610→            </Button>
+   611→            <Button variant="outline" className="h-11 px-8">
+   612→              Read Documentation
+   613→            </Button>
+   614→          </div>
+   615→        </div>
+   616→      </section>
+   617→
+   618→      {/* ─── Footer ──────────────────────────────────────────────────── */}
+   619→      <footer className="mt-auto border-t border-border bg-card">
+   620→        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+   621→          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+   622→            <div className="flex items-center gap-2">
+   623→              <div className="w-6 h-6 rounded bg-emerald-600 flex items-center justify-center">
+   624→                <Brain className="h-3.5 w-3.5 text-white" />
+   625→              </div>
+   626→              <span className="font-bold text-sm">IndustryX</span>
+   627→              <span className="text-[10px] text-muted-foreground">Skills × MCP</span>
+   628→            </div>
+   629→            <div className="flex items-center gap-6 text-xs text-muted-foreground">
+   630→              <span>Knowledge MCP Platform</span>
+   631→              <span>v1.1.0</span>
+   632→              <span>&copy; {new Date().getFullYear()}</span>
+   633→            </div>
+   634→          </div>
+   635→        </div>
+   636→      </footer>
+   637→    </div>
+   638→  )
+   639→}
+   640→
