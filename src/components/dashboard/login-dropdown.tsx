@@ -12,9 +12,8 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 
 // ─── Login Dropdown Panel (Client Component) ─────────────────────────────────
 // Uses Radix Popover for proper click-outside, focus, and keyboard support.
-// Uses signIn() from next-auth/react for proper session handling.
-// After successful login, forces a full page reload so useSession()
-// picks up the authenticated state immediately.
+// Listens for 'open-signin' custom event so CTA buttons anywhere on the page
+// can open this dropdown without a context provider.
 
 export function LoginDropdown() {
   const [open, setOpen] = useState(false)
@@ -23,13 +22,19 @@ export function LoginDropdown() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Listen for 'open-signin' custom events from CTA buttons
+  useEffect(() => {
+    const handleOpen = () => setOpen(true)
+    window.addEventListener('open-signin', handleOpen)
+    return () => window.removeEventListener('open-signin', handleOpen)
+  }, [])
+
   const handleDemoSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
     try {
-      // signIn() from next-auth/react handles CSRF internally
       const result = await signIn('demo', {
         email,
         password,
@@ -43,7 +48,6 @@ export function LoginDropdown() {
       }
 
       if (result?.ok) {
-        // Force full page reload so useSession() picks up the new session
         window.location.href = '/'
       }
     } catch {
@@ -75,7 +79,6 @@ export function LoginDropdown() {
         </div>
 
         <div className="p-4 space-y-3">
-          {/* OAuth Buttons */}
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
@@ -109,7 +112,6 @@ export function LoginDropdown() {
             </div>
           </div>
 
-          {/* Demo Login Form */}
           <form onSubmit={handleDemoSubmit} className="space-y-2.5">
             <div>
               <label htmlFor="login-email" className="sr-only">Email</label>

@@ -3,14 +3,16 @@ import HomePage from './home-client'
 
 // ─── SEO + GEO Metadata ──────────────────────────────────────────────────────
 // Exported from this Server Component — crawlers see this SSR'd.
+// Updated for Phase 1 repositioning: AI Knowledge Infrastructure SaaS.
 
 export const metadata: Metadata = {
-  title: 'IndustryX — AI-Native Knowledge MCP Platform | Skills × MCP',
+  title: 'IndustryX — AI-Native Knowledge Infrastructure for Coding Agents',
   description:
-    'IndustryX is the AI-native knowledge management platform with MCP server for AI agents. Semantic retrieval, token optimization, structured JSON knowledge units. Connect Claude Code, Cursor, VS Code. Reduce tokens by 80%+.',
+    'IndustryX is the AI-native knowledge infrastructure platform. One MCP endpoint. One API key. Semantic retrieval of structured JSON knowledge units. Connect Claude Code, Cursor, VS Code, OpenCode, Codex. Reduce tokens by 80%+.',
   keywords: [
     'MCP server',
     'Model Context Protocol',
+    'AI knowledge infrastructure',
     'AI knowledge management',
     'semantic retrieval',
     'knowledge platform',
@@ -18,6 +20,8 @@ export const metadata: Metadata = {
     'Claude Code',
     'Cursor AI',
     'VS Code MCP',
+    'OpenCode',
+    'Codex',
     'token optimization',
     'vector search',
     'JSON knowledge units',
@@ -25,6 +29,9 @@ export const metadata: Metadata = {
     'Skills MCP',
     'AI-native knowledge',
     'context window optimization',
+    'AI coding agents',
+    'knowledge retrieval',
+    'context builder',
   ],
   authors: [{ name: 'IndustryX Team', url: 'https://industryx.io' }],
   creator: 'IndustryX',
@@ -38,23 +45,23 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: 'https://industryx.io',
     siteName: 'IndustryX',
-    title: 'IndustryX — AI-Native Knowledge MCP Platform',
+    title: 'IndustryX — AI-Native Knowledge Infrastructure for Coding Agents',
     description:
-      'One MCP server. One API key. Access all skills, SOPs, architecture docs, and knowledge through a single intelligent retrieval platform. Reduce tokens. Improve AI quality.',
+      'One MCP endpoint. One API key. Access thousands of AI-ready knowledge units through intelligent semantic retrieval. Reduce tokens by 80%+. Connect Claude Code, Cursor, VS Code, OpenCode, Codex.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'IndustryX Knowledge MCP Platform — Skills × MCP',
+        alt: 'IndustryX — AI-Native Knowledge Infrastructure for Coding Agents',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'IndustryX — AI-Native Knowledge MCP Platform',
+    title: 'IndustryX — AI-Native Knowledge Infrastructure for Coding Agents',
     description:
-      'One MCP server. One API key. All knowledge. Reduce tokens by 80%+ with semantic retrieval.',
+      'One MCP endpoint. One API key. All knowledge. Reduce tokens by 80%+ with semantic retrieval.',
     images: ['/og-image.png'],
   },
   robots: {
@@ -71,37 +78,35 @@ export const metadata: Metadata = {
 }
 
 // ─── JSON-LD Structured Data ─────────────────────────────────────────────────
-// Injected server-side so crawlers can read it immediately.
+// Single source of truth — emitted here in page.tsx, NOT duplicated in landing-page.tsx.
 
 const faqData = [
-  { q: 'What is IndustryX Knowledge MCP Platform?', a: 'IndustryX is an AI-native knowledge management platform that provides a Model Context Protocol (MCP) server for AI agents. It stores knowledge as structured JSON units and enables semantic retrieval so AI agents only load relevant context, reducing token usage by 80%+ while improving response quality.' },
-  { q: 'What is MCP (Model Context Protocol)?', a: 'MCP is an open protocol that allows AI agents to connect to external data sources and tools. IndustryX implements MCP as a remote server using SSE transport and JSON-RPC 2.0, enabling any MCP-compatible client like Claude Code, Cursor, or VS Code to retrieve knowledge on demand.' },
+  { q: 'What is IndustryX Knowledge MCP Platform?', a: 'IndustryX is an AI-native knowledge infrastructure platform that provides a Model Context Protocol (MCP) server for coding agents. It stores knowledge as structured JSON units and enables semantic retrieval so AI agents only load relevant context, reducing token usage by 80%+ while improving response quality.' },
+  { q: 'What is MCP (Model Context Protocol)?', a: 'MCP is an open protocol that allows AI agents to connect to external data sources and tools. IndustryX implements MCP as a remote server using SSE transport and JSON-RPC 2.0, enabling any MCP-compatible client like Claude Code, Cursor, VS Code, OpenCode, or Codex to retrieve knowledge on demand.' },
   { q: 'How does semantic retrieval work?', a: 'IndustryX uses a hybrid retrieval system that combines vector embedding similarity (40% weight), keyword matching (20%), category matching (15%), intent matching (15%), and usage weighting (10%). This ensures that AI agents receive the most relevant knowledge units without loading entire knowledge bases into context.' },
   { q: 'How does IndustryX reduce token usage?', a: 'Instead of loading all knowledge into an AI context window, IndustryX context builder retrieves only the top relevant documents within a configurable token budget. Average token savings exceed 80% compared to loading full knowledge bases, with search latency under 100ms and context building under 500ms.' },
   { q: 'What are JSON Knowledge Units?', a: 'JSON Knowledge Units are structured data objects that replace traditional markdown documentation. Each unit contains: slug, title, category, tags, intents, rules, anti-patterns, implementation steps, dependencies, references, and metadata. This structure makes knowledge machine-readable and optimizable for semantic search.' },
-  { q: 'How do I connect my AI agent to IndustryX?', a: 'Generate an API key from the IndustryX dashboard, then add the MCP server configuration to your client. For Claude Code, add to claude_desktop_config.json with the SSE URL and API key. For Cursor, VS Code, and other MCP clients, configure the SSE endpoint similarly.' },
+  { q: 'How do I connect my AI agent to IndustryX?', a: 'Generate an API key from the IndustryX dashboard, then add the MCP server configuration to your client. For Claude Code, add to claude_desktop_config.json with the SSE URL and API key. For Cursor, VS Code, OpenCode, Codex, and other MCP clients, configure the SSE endpoint similarly.' },
   { q: 'Is there a free plan available?', a: 'Yes. IndustryX offers a free forever plan that includes a personal account, basic MCP access, 1,000 API requests per month, 1 API key, and 100 knowledge units. No credit card required. Pro plans start at $21/month with launch pricing.' },
   { q: 'What types of knowledge can I store?', a: 'IndustryX supports 8+ knowledge categories: Skills, SOPs, Architecture, Security, Economy, Deployment, Standards, and Analytics. Custom categories are also supported.' },
 ]
 
 const jsonLdScripts = [
-  // Organization schema
   {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'IndustryX',
-    description: 'AI-native Knowledge MCP Platform — Skills × MCP. Semantic retrieval platform for AI agents.',
+    description: 'AI-Native Knowledge Infrastructure for Coding Agents. One MCP endpoint. Semantic retrieval platform.',
     url: 'https://industryx.io',
     logo: 'https://industryx.io/logo.svg',
   },
-  // SoftwareApplication schema
   {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'IndustryX Knowledge MCP Platform',
+    name: 'IndustryX Knowledge Platform',
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Web',
-    description: 'AI-native knowledge management platform with MCP server for AI agents. Semantic retrieval, token optimization, and structured JSON knowledge units.',
+    description: 'AI-native knowledge infrastructure platform with MCP server for coding agents. Semantic retrieval, token optimization, and structured JSON knowledge units.',
     offers: [
       { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD', description: 'Personal account, 1K API requests/mo' },
       { '@type': 'Offer', name: 'Pro', price: '21', priceCurrency: 'USD', description: '50K API requests/mo, 5 API keys, 5K knowledge units' },
@@ -109,7 +114,6 @@ const jsonLdScripts = [
     ],
     featureList: ['MCP Server with SSE transport', 'Semantic vector search', 'Context builder with token budget', '8 MCP tools for AI agents', 'API key management', 'GitHub and Google OAuth', 'Team workspaces', 'Usage analytics'],
   },
-  // FAQ schema (most important for GEO — AI engines cite FAQs)
   {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
