@@ -1,0 +1,640 @@
+     1→import React from 'react'
+     2→import {
+     3→  Brain, Server, Search, Key, Zap, Shield, ArrowRight, Check,
+     4→  BarChart3, Database, Globe, Code2, Layers, Lock, Sparkles,
+     5→  BookOpen, Cpu, ArrowDown, FileText, AlertTriangle, X,
+     6→  GitBranch, Users, TrendingUp, Target, ChevronRight,
+     7→} from 'lucide-react'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Badge } from '@/components/ui/badge'
+    10→import { Card, CardContent } from '@/components/ui/card'
+    11→import { Separator } from '@/components/ui/separator'
+    12→import { LoginDropdown } from './login-dropdown'
+    13→import { CtaButton } from './cta-button'
+    14→import { MobileMenuToggle } from './mobile-menu-toggle'
+    15→
+    16→// ─── Data Constants ──────────────────────────────────────────────────────────
+    17→
+    18→const PROBLEMS = [
+    19→  { icon: AlertTriangle, title: 'Context Bloat', desc: 'Loading 500+ markdown files into context wastes tokens and degrades response quality.' },
+    20→  { icon: Zap, title: 'Token Waste', desc: 'Every unnecessary token costs money. Bloated context means higher bills and slower inference.' },
+    21→  { icon: FileText, title: 'Duplicate Instructions', desc: 'Same rules repeated across files. Contradictions emerge. AI gets confused.' },
+    22→  { icon: GitBranch, title: 'Knowledge Fragmentation', desc: 'Knowledge scattered across repos, wikis, and docs. No single source of truth.' },
+    23→  { icon: X, title: 'Maintenance Nightmare', desc: 'Updating one standard means editing 20 files. Version conflicts everywhere.' },
+    24→  { icon: Users, title: 'Difficult Onboarding', desc: 'New agents need entire knowledge bases loaded. No selective retrieval.' },
+    25→]
+    26→
+    27→const SOLUTION_STEPS = [
+    28→  { num: '01', title: 'Search', desc: 'Agent sends a natural language query to the IndustryX MCP server.' },
+    29→  { num: '02', title: 'Retrieve', desc: 'Hybrid scoring finds the most relevant knowledge units — not everything.' },
+    30→  { num: '03', title: 'Rank', desc: 'Vector similarity + keyword match + category + intent + usage weighting.' },
+    31→  { num: '04', title: 'Assemble Context', desc: 'Context builder packages results within a configurable token budget.' },
+    32→  { num: '05', title: 'Generate', desc: 'Agent receives optimized context. Better inputs. Better outputs. Lower cost.' },
+    33→]
+    34→
+    35→const FEATURES = [
+    36→  { icon: Brain, title: 'AI-Native Knowledge', desc: 'Structured JSON Knowledge Units — not markdown. Built for AI agents, not humans reading files.', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+    37→  { icon: Search, title: 'Semantic Retrieval', desc: 'Vector search + keyword match + category + intent scoring. Only retrieve what\'s relevant.', color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-950/30' },
+    38→  { icon: Server, title: 'MCP Server', desc: 'Remote MCP server over SSE. Connect Claude Code, Cursor, VS Code, or any MCP-compatible agent.', color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/30' },
+    39→  { icon: Zap, title: 'Token Optimization', desc: 'Context builder with token budget. Reduce tokens. Reduce context size. Improve AI quality.', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
+    40→  { icon: Key, title: 'API Key Management', desc: 'Generate, rotate, revoke API keys. Rate limiting. Usage tracking. Multiple keys per user.', color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-950/30' },
+    41→  { icon: Shield, title: 'Auth & Workspaces', desc: 'GitHub/Google OAuth. Team workspaces. Role-based access. Organization management.', color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
+    42→]
+    43→
+    44→const KNOWLEDGE_TYPES = [
+    45→  { icon: Code2, label: 'Skills', desc: 'Reusable AI skills and capabilities' },
+    46→  { icon: BookOpen, label: 'SOPs', desc: 'Standard operating procedures' },
+    47→  { icon: Layers, label: 'Architecture', desc: 'System architecture documents' },
+    48→  { icon: Shield, label: 'Security', desc: 'Security standards & practices' },
+    49→  { icon: BarChart3, label: 'Economy', desc: 'Game economy & monetization' },
+    50→  { icon: Globe, label: 'Deployment', desc: 'CI/CD & deployment knowledge' },
+    51→  { icon: Database, label: 'Standards', desc: 'UI/UX, backend, frontend standards' },
+    52→  { icon: Cpu, label: 'Analytics', desc: 'Analytics & live ops knowledge' },
+    53→]
+    54→
+    55→const MCP_TOOLS_LIST = [
+    56→  { name: 'search_knowledge', desc: 'Hybrid search across all knowledge', params: 'query, limit?' },
+    57→  { name: 'retrieve_knowledge', desc: 'Get a specific document by slug', params: 'slug' },
+    58→  { name: 'build_context', desc: 'Build optimized AI context with token budget', params: 'query, maxDocuments?, maxTokenBudget?' },
+    59→  { name: 'search_skills', desc: 'Search skills category', params: 'query, limit?' },
+    60→  { name: 'search_sops', desc: 'Search SOPs category', params: 'query, limit?' },
+    61→  { name: 'search_architecture', desc: 'Search architecture category', params: 'query, limit?' },
+    62→  { name: 'search_security', desc: 'Search security category', params: 'query, limit?' },
+    63→  { name: 'search_game_system', desc: 'Search game systems category', params: 'query, limit?' },
+    64→]
+    65→
+    66→const MCP_CLIENTS = [
+    67→  { name: 'Claude Code', desc: 'Add to claude_desktop_config.json' },
+    68→  { name: 'Cursor', desc: 'Add to MCP settings with SSE transport' },
+    69→  { name: 'VS Code', desc: 'Use the MCP extension for VS Code' },
+    70→  { name: 'OpenCode', desc: 'Configure SSE endpoint in settings' },
+    71→  { name: 'Codex', desc: 'Connect via MCP protocol adapter' },
+    72→  { name: 'Custom Agents', desc: 'SSE + JSON-RPC 2.0 standard' },
+    73→]
+    74→
+    75→const PLANS = [
+    76→  {
+    77→    name: 'Free', price: '$0', period: '/month', desc: 'Get started free forever',
+    78→    features: ['Personal account', 'Basic MCP access', '1,000 API requests/mo', '1 API key', '100 knowledge units', 'Community support'],
+    79→    cta: 'Get Started Free', popular: false,
+    80→  },
+    81→  {
+    82→    name: 'Pro', price: '$21', originalPrice: '$30', period: '/month', desc: 'Launch special — 30% off',
+    83→    features: ['50,000 API requests/mo', '5 API keys', '5,000 knowledge units', '5 team members', '3 workspaces', 'Advanced analytics', 'Priority retrieval'],
+    84→    cta: 'Start Pro Trial', popular: true,
+    85→  },
+    86→  {
+    87→    name: 'Ultra', price: '$100', originalPrice: '$250', period: '/month', desc: '60% off launch price',
+    88→    features: ['500,000 API requests/mo', '50 API keys', '50,000 knowledge units', '25 team members', '10 workspaces', 'Team workspaces', 'Premium support', 'Custom knowledge packs'],
+    89→    cta: 'Go Ultra', popular: false,
+    90→  },
+    91→]
+    92→
+    93→const FAQS = [
+    94→  { question: 'What is IndustryX Knowledge MCP Platform?', answer: 'IndustryX is an AI-native knowledge management platform that provides a Model Context Protocol (MCP) server for AI agents. It stores knowledge as structured JSON units — not markdown — and enables semantic retrieval so AI agents only load relevant context, reducing token usage by 80%+ while improving response quality.' },
+    95→  { question: 'What is MCP (Model Context Protocol)?', answer: 'MCP is an open protocol that allows AI agents to connect to external data sources and tools. IndustryX implements MCP as a remote server using SSE (Server-Sent Events) transport and JSON-RPC 2.0, enabling any MCP-compatible client like Claude Code, Cursor, or VS Code to retrieve knowledge on demand.' },
+    96→  { question: 'How does semantic retrieval work?', answer: 'IndustryX uses a hybrid retrieval system that combines vector embedding similarity (40% weight), keyword matching (20%), category matching (15%), intent matching (15%), and usage weighting (10%). This ensures that AI agents receive the most relevant knowledge units without loading entire knowledge bases into context.' },
+    97→  { question: 'How does IndustryX reduce token usage?', answer: 'Instead of loading all knowledge into an AI\'s context window, IndustryX\'s context builder retrieves only the top relevant documents within a configurable token budget. Average token savings exceed 80% compared to loading full knowledge bases, with search latency under 100ms and context building under 500ms.' },
+    98→  { question: 'What are JSON Knowledge Units?', answer: 'JSON Knowledge Units are structured data objects that replace traditional markdown documentation. Each unit contains: slug, title, category, tags, intents (for matching user queries), rules, anti-patterns, implementation steps, dependencies, references, and metadata. This structure makes knowledge machine-readable and optimizable for semantic search.' },
+    99→  { question: 'How do I connect my AI agent to IndustryX?', answer: 'Generate an API key from the IndustryX dashboard, then add the MCP server configuration to your client. For Claude Code, add to claude_desktop_config.json. For Cursor, VS Code, and other MCP clients, configure the SSE endpoint similarly.' },
+   100→  { question: 'Is there a free plan available?', answer: 'Yes. IndustryX offers a free forever plan that includes a personal account, basic MCP access, 1,000 API requests per month, 1 API key, and 100 knowledge units. No credit card required. Pro plans start at $21/month with launch pricing.' },
+   101→  { question: 'What types of knowledge can I store?', answer: 'IndustryX supports 8+ knowledge categories: Skills, SOPs, Architecture, Security, Economy, Deployment, Standards, and Analytics. Custom categories are also supported.' },
+   102→]
+   103→
+   104→// ─── Landing Page (Server Component) ─────────────────────────────────────────
+   105→
+   106→export default function LandingPage() {
+   107→  return (
+   108→    <div className="min-h-screen flex flex-col bg-background">
+   109→
+   110→      {/* ─── Navbar ──────────────────────────────────────────────────── */}
+   111→      <header className="sticky top-0 z-30 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+   112→        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+   113→          <div className="flex items-center gap-2.5">
+   114→            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center" aria-hidden="true">
+   115→              <Brain className="h-4.5 w-4.5 text-white" />
+   116→            </div>
+   117→            <div>
+   118→              <span className="font-bold text-sm">IndustryX</span>
+   119→              <span className="text-[10px] text-muted-foreground ml-1.5 hidden sm:inline">Knowledge MCP</span>
+   120→            </div>
+   121→          </div>
+   122→
+   123→          <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground" aria-label="Main navigation">
+   124→            <a href="#problem" className="hover:text-foreground transition-colors">Problem</a>
+   125→            <a href="#solution" className="hover:text-foreground transition-colors">Solution</a>
+   126→            <a href="#knowledge" className="hover:text-foreground transition-colors">Knowledge</a>
+   127→            <a href="#mcp" className="hover:text-foreground transition-colors">MCP</a>
+   128→            <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+   129→            <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+   130→            <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
+   131→          </nav>
+   132→
+   133→          <div className="flex items-center gap-3">
+   134→            <LoginDropdown />
+   135→            <MobileMenuToggle />
+   136→          </div>
+   137→        </div>
+   138→      </header>
+   139→
+   140→      {/* ─── Section 1: Hero ─────────────────────────────────────────── */}
+   141→      <section aria-label="Hero" className="relative overflow-hidden">
+   142→        {/* Background */}
+   143→        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/20" aria-hidden="true" />
+   144→        <div className="absolute top-20 left-1/4 w-72 h-72 bg-emerald-200/30 dark:bg-emerald-800/10 rounded-full blur-3xl" aria-hidden="true" />
+   145→        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-teal-200/20 dark:bg-teal-800/10 rounded-full blur-3xl" aria-hidden="true" />
+   146→
+   147→        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-20 md:py-28 text-center">
+   148→          <Badge variant="outline" className="mb-6 px-3 py-1 text-xs border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30">
+   149→            <Sparkles className="h-3 w-3 mr-1.5" aria-hidden="true" />
+   150→            AI Knowledge Infrastructure for Coding Agents
+   151→          </Badge>
+   152→
+   153→          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
+   154→            AI-Native Knowledge
+   155→            <br />
+   156→            <span className="text-emerald-600 dark:text-emerald-400">Infrastructure</span>
+   157→            <br />
+   158→            for Coding Agents
+   159→          </h1>
+   160→
+   161→          <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+   162→            Connect Claude Code, OpenCode, Codex, Cursor, VS Code, and future MCP-compatible
+   163→            agents to a centralized retrieval platform built for high-quality AI outputs.
+   164→          </p>
+   165→
+   166→          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+   167→            <CtaButton
+   168→              className="bg-emerald-600 hover:bg-emerald-700 text-white h-12 px-8 text-base font-medium"
+   169→              showArrow
+   170→            >
+   171→              Get Started
+   172→            </CtaButton>
+   173→            <Button variant="outline" className="h-12 px-8 text-base" asChild>
+   174→              <a href="#architecture">View Documentation</a>
+   175→            </Button>
+   176→          </div>
+   177→
+   178→          {/* Supported Clients */}
+   179→          <div className="mt-12">
+   180→            <p className="text-xs text-muted-foreground mb-4 uppercase tracking-wider">Supported MCP Clients</p>
+   181→            <div className="flex flex-wrap items-center justify-center gap-4">
+   182→              {['Claude Code', 'Cursor', 'VS Code', 'OpenCode', 'Codex'].map(client => (
+   183→                <div key={client} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 bg-card/50 text-xs font-medium text-muted-foreground">
+   184→                  <Code2 className="h-3 w-3" aria-hidden="true" />
+   185→                  {client}
+   186→                </div>
+   187→              ))}
+   188→            </div>
+   189→          </div>
+   190→
+   191→          {/* Stats */}
+   192→          <div className="mt-10 flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground">
+   193→            <div className="flex items-center gap-2">
+   194→              <Database className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+   195→              <span><strong className="text-foreground">10K+</strong> Knowledge Units</span>
+   196→            </div>
+   197→            <div className="flex items-center gap-2">
+   198→              <Zap className="h-4 w-4 text-amber-600" aria-hidden="true" />
+   199→              <span><strong className="text-foreground">&lt;100ms</strong> Search</span>
+   200→            </div>
+   201→            <div className="flex items-center gap-2">
+   202→              <Server className="h-4 w-4 text-violet-600" aria-hidden="true" />
+   203→              <span><strong className="text-foreground">8</strong> MCP Tools</span>
+   204→            </div>
+   205→            <div className="flex items-center gap-2">
+   206→              <Lock className="h-4 w-4 text-rose-600" aria-hidden="true" />
+   207→              <span><strong className="text-foreground">API Key</strong> Access</span>
+   208→            </div>
+   209→          </div>
+   210→        </div>
+   211→      </section>
+   212→
+   213→      {/* ─── Section 2: The Problem ───────────────────────────────────── */}
+   214→      <section id="problem" aria-labelledby="problem-heading" className="py-20 md:py-24 bg-card/50 border-y border-border">
+   215→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   216→          <div className="text-center mb-14">
+   217→            <Badge variant="outline" className="mb-3 text-xs border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 bg-red-50/50 dark:bg-red-950/30">
+   218→              <AlertTriangle className="h-3 w-3 mr-1.5" aria-hidden="true" />
+   219→              The Problem
+   220→            </Badge>
+   221→            <h2 id="problem-heading" className="text-3xl sm:text-4xl font-bold">
+   222→              The Traditional Workflow Is Broken
+   223→            </h2>
+   224→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
+   225→              AI coding agents load entire knowledge bases into context. The result: wasted tokens, slow responses, and inconsistent outputs.
+   226→            </p>
+   227→          </div>
+   228→
+   229→          {/* Pain Flow */}
+   230→          <div className="mb-14 max-w-4xl mx-auto">
+   231→            <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+   232→              {[
+   233→                { label: 'AI Agent', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+   234→                { label: 'Loads 500 MD Files', color: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' },
+   235→                { label: 'Bloated Context', color: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' },
+   236→                { label: 'High Token Cost', color: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' },
+   237→                { label: 'Slow Responses', color: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' },
+   238→                { label: 'Inconsistent Outputs', color: 'bg-red-100 text-red-900 dark:bg-red-950/60 dark:text-red-200 font-semibold' },
+   239→              ].map((item, i) => (
+   240→                <React.Fragment key={item.label}>
+   241→                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${item.color}`}>
+   242→                    {item.label}
+   243→                  </div>
+   244→                  {i < 5 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" aria-hidden="true" />}
+   245→                </React.Fragment>
+   246→              ))}
+   247→            </div>
+   248→          </div>
+   249→
+   250→          {/* Problem Cards */}
+   251→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+   252→            {PROBLEMS.map(p => {
+   253→              const Icon = p.icon
+   254→              return (
+   255→                <article key={p.title} className="group border border-red-100 dark:border-red-950/40 rounded-xl bg-background hover:border-red-200 dark:hover:border-red-800 transition-all duration-200">
+   256→                  <div className="p-6">
+   257→                    <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4 bg-red-50 dark:bg-red-950/30">
+   258→                      <Icon className="h-5 w-5 text-red-600 dark:text-red-400" aria-hidden="true" />
+   259→                    </div>
+   260→                    <h3 className="font-semibold text-base mb-1.5">{p.title}</h3>
+   261→                    <p className="text-sm text-muted-foreground leading-relaxed">{p.desc}</p>
+   262→                  </div>
+   263→                </article>
+   264→              )
+   265→            })}
+   266→          </div>
+   267→        </div>
+   268→      </section>
+   269→
+   270→      {/* ─── Section 3: The Solution ──────────────────────────────────── */}
+   271→      <section id="solution" aria-labelledby="solution-heading" className="py-20 md:py-24">
+   272→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   273→          <div className="text-center mb-14">
+   274→            <Badge variant="outline" className="mb-3 text-xs border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30">
+   275→              <Sparkles className="h-3 w-3 mr-1.5" aria-hidden="true" />
+   276→              The Solution
+   277→            </Badge>
+   278→            <h2 id="solution-heading" className="text-3xl sm:text-4xl font-bold">
+   279→              The IndustryX Approach
+   280→            </h2>
+   281→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
+   282→              One MCP endpoint. Semantic retrieval. Only the knowledge that matters.
+   283→            </p>
+   284→          </div>
+   285→
+   286→          {/* Solution Flow */}
+   287→          <div className="mb-14 max-w-4xl mx-auto">
+   288→            <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+   289→              {[
+   290→                { label: 'AI Agent', color: 'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300' },
+   291→                { label: 'IndustryX MCP', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold' },
+   292→                { label: 'Semantic Retrieval', color: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' },
+   293→                { label: 'Relevant Knowledge', color: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' },
+   294→                { label: 'Optimized Context', color: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' },
+   295→                { label: 'Better Outputs', color: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200 font-semibold' },
+   296→              ].map((item, i) => (
+   297→                <React.Fragment key={item.label}>
+   298→                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${item.color}`}>
+   299→                    {item.label}
+   300→                  </div>
+   301→                  {i < 5 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" aria-hidden="true" />}
+   302→                </React.Fragment>
+   303→              ))}
+   304→            </div>
+   305→          </div>
+   306→
+   307→          {/* Steps */}
+   308→          <div className="max-w-3xl mx-auto">
+   309→            <div className="space-y-4">
+   310→              {SOLUTION_STEPS.map(step => (
+   311→                <div key={step.num} className="flex items-start gap-4 p-5 rounded-xl border border-border/50 bg-card/50 hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+   312→                  <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center shrink-0">
+   313→                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{step.num}</span>
+   314→                  </div>
+   315→                  <div>
+   316→                    <h3 className="font-semibold text-base">{step.title}</h3>
+   317→                    <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{step.desc}</p>
+   318→                  </div>
+   319→                </div>
+   320→              ))}
+   321→            </div>
+   322→          </div>
+   323→        </div>
+   324→      </section>
+   325→
+   326→      {/* ─── Architecture Flow ───────────────────────────────────────── */}
+   327→      <section id="architecture" aria-labelledby="architecture-heading" className="border-y border-border bg-card/50">
+   328→        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14">
+   329→          <div className="text-center mb-10">
+   330→            <h2 id="architecture-heading" className="text-2xl sm:text-3xl font-bold">How It Works</h2>
+   331→            <p className="mt-2 text-muted-foreground text-sm max-w-lg mx-auto">Every layer optimized for AI-native knowledge delivery.</p>
+   332→          </div>
+   333→          <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+   334→            {[
+   335→              { label: 'Developer', icon: Users, color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+   336→              { label: 'AI Agent', icon: Cpu, color: 'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300' },
+   337→              { label: 'IndustryX MCP', icon: Server, color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold' },
+   338→              { label: 'Knowledge Engine', icon: Brain, color: 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300' },
+   339→              { label: 'Vector Search', icon: Search, color: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' },
+   340→              { label: 'JSON Knowledge', icon: Database, color: 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300' },
+   341→            ].map((item, i) => (
+   342→              <React.Fragment key={item.label}>
+   343→                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${item.color}`}>
+   344→                  <item.icon className="h-3.5 w-3.5" aria-hidden="true" />
+   345→                  {item.label}
+   346→                </div>
+   347→                {i < 5 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" aria-hidden="true" />}
+   348→              </React.Fragment>
+   349→            ))}
+   350→          </div>
+   351→        </div>
+   352→      </section>
+   353→
+   354→      {/* ─── Features ────────────────────────────────────────────────── */}
+   355→      <section id="features" aria-labelledby="features-heading" className="py-20 md:py-24">
+   356→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   357→          <div className="text-center mb-14">
+   358→            <Badge variant="outline" className="mb-3 text-xs">Platform Features</Badge>
+   359→            <h2 id="features-heading" className="text-3xl sm:text-4xl font-bold">Built for AI agents.<br />Managed by humans.</h2>
+   360→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Every feature designed for semantic retrieval — never load all knowledge into context.</p>
+   361→          </div>
+   362→
+   363→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+   364→            {FEATURES.map(f => {
+   365→              const Icon = f.icon
+   366→              return (
+   367→                <article key={f.title} className="group hover:shadow-lg transition-all duration-200 border border-border/50 rounded-xl">
+   368→                  <div className="p-6">
+   369→                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 ${f.bg}`}>
+   370→                      <Icon className={`h-5 w-5 ${f.color}`} aria-hidden="true" />
+   371→                    </div>
+   372→                    <h3 className="font-semibold text-base mb-1.5">{f.title}</h3>
+   373→                    <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+   374→                  </div>
+   375→                </article>
+   376→              )
+   377→            })}
+   378→          </div>
+   379→        </div>
+   380→      </section>
+   381→
+   382→      {/* ─── Knowledge Types ─────────────────────────────────────────── */}
+   383→      <section id="knowledge" aria-labelledby="knowledge-heading" className="py-20 md:py-24 bg-card/50 border-y border-border">
+   384→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   385→          <div className="text-center mb-14">
+   386→            <Badge variant="outline" className="mb-3 text-xs">Knowledge System</Badge>
+   387→            <h2 id="knowledge-heading" className="text-3xl sm:text-4xl font-bold">AI-Native JSON Knowledge Units</h2>
+   388→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Replace markdown with structured, searchable, AI-optimized knowledge.</p>
+   389→          </div>
+   390→
+   391→          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+   392→            {KNOWLEDGE_TYPES.map(k => {
+   393→              const Icon = k.icon
+   394→              return (
+   395→                <article key={k.label} className="flex flex-col items-center text-center p-4 rounded-xl border border-border/50 bg-background hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+   396→                  <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center mb-2.5">
+   397→                    <Icon className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+   398→                  </div>
+   399→                  <h3 className="font-medium text-sm">{k.label}</h3>
+   400→                  <p className="text-xs text-muted-foreground mt-1">{k.desc}</p>
+   401→                </article>
+   402→              )
+   403→            })}
+   404→          </div>
+   405→
+   406→          {/* JSON Schema Preview */}
+   407→          <div className="mt-10 max-w-2xl mx-auto border border-border/50 rounded-xl">
+   408→            <div className="p-5">
+   409→              <h3 className="font-mono text-xs font-semibold text-emerald-600 mb-3">knowledge/skills/ui-ux-pro-max.json</h3>
+   410→              <pre className="text-xs font-mono text-muted-foreground leading-relaxed overflow-x-auto" aria-label="Example JSON knowledge unit schema">
+   411→{`{
+   412→  "slug": "ui-ux-pro-max",
+   413→  "title": "UI/UX Pro Max Standards",
+   414→  "category": "skills",
+   415→  "tags": ["ui", "ux", "design", "accessibility"],
+   416→  "intents": ["design ui", "improve ux", "accessibility audit"],
+   417→  "rules": ["Use semantic HTML", "44px min touch targets"],
+   418→  "antiPatterns": ["Inline styles", "!important overrides"],
+   419→  "implementationSteps": ["Audit current UI", ...],
+   420→  "dependencies": ["design-system-core"]
+   421→}`}
+   422→              </pre>
+   423→            </div>
+   424→          </div>
+   425→        </div>
+   426→      </section>
+   427→
+   428→      {/* ─── MCP Server ──────────────────────────────────────────────── */}
+   429→      <section id="mcp" aria-labelledby="mcp-heading" className="py-20 md:py-24">
+   430→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   431→          <div className="text-center mb-14">
+   432→            <Badge variant="outline" className="mb-3 text-xs">MCP Protocol</Badge>
+   433→            <h2 id="mcp-heading" className="text-3xl sm:text-4xl font-bold">Connect Any AI Agent</h2>
+   434→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">One MCP server. SSE transport. JSON-RPC 2.0. Your agents get knowledge on demand.</p>
+   435→          </div>
+   436→
+   437→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+   438→            <div>
+   439→              <h3 className="font-semibold mb-4 flex items-center gap-2">
+   440→                <Server className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+   441→                8 MCP Tools Available
+   442→              </h3>
+   443→              <div className="space-y-2">
+   444→                {MCP_TOOLS_LIST.map(tool => (
+   445→                  <div key={tool.name} className="flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+   446→                    <code className="text-xs font-mono text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded shrink-0">
+   447→                      {tool.name}
+   448→                    </code>
+   449→                    <div>
+   450→                      <p className="text-xs text-muted-foreground">{tool.desc}</p>
+   451→                      <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5">params: {tool.params}</p>
+   452→                    </div>
+   453→                  </div>
+   454→                ))}
+   455→              </div>
+   456→            </div>
+   457→
+   458→            <div>
+   459→              <h3 className="font-semibold mb-4 flex items-center gap-2">
+   460→                <Code2 className="h-4 w-4 text-violet-600" aria-hidden="true" />
+   461→                Supported MCP Clients
+   462→              </h3>
+   463→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+   464→                {MCP_CLIENTS.map(client => (
+   465→                  <div key={client.name} className="p-3 rounded-lg border border-border/50 bg-card">
+   466→                    <p className="text-sm font-medium">{client.name}</p>
+   467→                    <p className="text-xs text-muted-foreground mt-0.5">{client.desc}</p>
+   468→                  </div>
+   469→                ))}
+   470→              </div>
+   471→
+   472→              <div className="bg-gray-950 text-gray-100 rounded-xl overflow-hidden">
+   473→                <div className="p-4">
+   474→                  <p className="text-[10px] text-gray-400 mb-2 font-mono">{'// claude_desktop_config.json'}</p>
+   475→                  <pre className="text-xs font-mono leading-relaxed text-emerald-400" aria-label="MCP client configuration example">
+   476→{`{
+   477→  "mcpServers": {
+   478→    "industryx": {
+   479→      "url": "https://your-server.com/sse",
+   480→      "headers": {
+   481→        "Authorization": "Bearer ixk_your_api_key"
+   482→      }
+   483→    }
+   484→  }
+   485→}`}
+   486→                  </pre>
+   487→                </div>
+   488→              </div>
+   489→            </div>
+   490→          </div>
+   491→        </div>
+   492→      </section>
+   493→
+   494→      {/* ─── Token Savings ───────────────────────────────────────────── */}
+   495→      <section aria-label="Token savings" className="py-20 md:py-24 bg-emerald-600 text-white">
+   496→        <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
+   497→          <h2 className="text-3xl sm:text-4xl font-bold">Reduce Tokens. Improve Quality.</h2>
+   498→          <p className="mt-3 text-emerald-100 text-lg max-w-xl mx-auto">
+   499→            Instead of loading all knowledge into context, retrieve only what&apos;s relevant.
+   500→          </p>
+   501→
+   502→          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+   503→            {[
+   504→              { value: '80%+', label: 'Token Reduction', sub: 'vs. loading full knowledge base' },
+   505→              { value: '<100ms', label: 'Search Latency', sub: 'semantic vector search' },
+   506→              { value: '<500ms', label: 'Context Build', sub: 'including ranking & retrieval' },
+   507→            ].map(stat => (
+   508→              <div key={stat.label} className="p-6 rounded-xl bg-white/10 backdrop-blur-sm">
+   509→                <p className="text-4xl font-extrabold">{stat.value}</p>
+   510→                <p className="text-sm font-medium mt-1">{stat.label}</p>
+   511→                <p className="text-xs text-emerald-200 mt-1">{stat.sub}</p>
+   512→              </div>
+   513→            ))}
+   514→          </div>
+   515→        </div>
+   516→      </section>
+   517→
+   518→      {/* ─── FAQ ─────────────────────────────────────────────────────── */}
+   519→      <section id="faq" aria-labelledby="faq-heading" className="py-20 md:py-24">
+   520→        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+   521→          <div className="text-center mb-14">
+   522→            <Badge variant="outline" className="mb-3 text-xs">FAQ</Badge>
+   523→            <h2 id="faq-heading" className="text-3xl sm:text-4xl font-bold">Frequently Asked Questions</h2>
+   524→            <p className="mt-3 text-muted-foreground">Everything you need to know about IndustryX Knowledge MCP Platform.</p>
+   525→          </div>
+   526→
+   527→          <div className="space-y-4">
+   528→            {FAQS.map((faq, i) => (
+   529→              <article key={i} className="border border-border/50 rounded-xl p-5">
+   530→                <h3 className="font-semibold text-sm mb-2">{faq.question}</h3>
+   531→                <p className="text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+   532→              </article>
+   533→            ))}
+   534→          </div>
+   535→        </div>
+   536→      </section>
+   537→
+   538→      {/* ─── Pricing ─────────────────────────────────────────────────── */}
+   539→      <section id="pricing" aria-labelledby="pricing-heading" className="py-20 md:py-24 bg-card/50 border-y border-border">
+   540→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   541→          <div className="text-center mb-14">
+   542→            <Badge variant="outline" className="mb-3 text-xs">Simple Pricing</Badge>
+   543→            <h2 id="pricing-heading" className="text-3xl sm:text-4xl font-bold">Start free. Scale infinitely.</h2>
+   544→            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Launch special pricing — lock in discounts before they expire.</p>
+   545→          </div>
+   546→
+   547→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+   548→            {PLANS.map(plan => (
+   549→              <article key={plan.name} className={`relative border rounded-xl ${plan.popular ? 'border-emerald-300 dark:border-emerald-700 shadow-lg' : 'border-border/50'}`}>
+   550→                {plan.popular && (
+   551→                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+   552→                    <Badge className="bg-emerald-600 text-white text-[10px] px-2.5">Most Popular</Badge>
+   553→                  </div>
+   554→                )}
+   555→                <div className="p-6">
+   556→                  <h3 className="font-bold text-lg">{plan.name}</h3>
+   557→                  <div className="mt-2 flex items-baseline gap-1">
+   558→                    <span className="text-3xl font-extrabold">{plan.price}</span>
+   559→                    <span className="text-muted-foreground text-sm">{plan.period}</span>
+   560→                    {plan.originalPrice && (
+   561→                      <span className="text-sm text-muted-foreground line-through ml-1">{plan.originalPrice}</span>
+   562→                    )}
+   563→                  </div>
+   564→                  <p className="text-xs text-muted-foreground mt-1">{plan.desc}</p>
+   565→
+   566→                  <Separator className="my-4" />
+   567→
+   568→                  <ul className="space-y-2 mb-6" aria-label={`${plan.name} plan features`}>
+   569→                    {plan.features.map(f => (
+   570→                      <li key={f} className="flex items-start gap-2 text-sm">
+   571→                        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+   572→                        <span>{f}</span>
+   573→                      </li>
+   574→                    ))}
+   575→                  </ul>
+   576→
+   577→                  <CtaButton
+   578→                    className={`w-full ${plan.popular ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+   579→                    variant={plan.popular ? 'default' : 'outline'}
+   580→                  >
+   581→                    {plan.cta}
+   582→                  </CtaButton>
+   583→                </div>
+   584→              </article>
+   585→            ))}
+   586→          </div>
+   587→
+   588→          <p className="text-center text-sm text-muted-foreground mt-6">
+   589→            <strong>Enterprise</strong> — Custom pricing with private MCP deployment, dedicated infrastructure, SSO, and SLA support.
+   590→          </p>
+   591→        </div>
+   592→      </section>
+   593→
+   594→      {/* ─── CTA ─────────────────────────────────────────────────────── */}
+   595→      <section aria-label="Call to action" className="py-16 md:py-20 bg-background">
+   596→        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+   597→          <h2 className="text-2xl sm:text-3xl font-bold">Ready to supercharge your AI agents?</h2>
+   598→          <p className="mt-3 text-muted-foreground">One MCP server. One API key. Access all knowledge. Start free today.</p>
+   599→          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+   600→            <CtaButton className="bg-emerald-600 hover:bg-emerald-700 text-white h-11 px-8" showArrow>
+   601→              Get Started Free
+   602→            </CtaButton>
+   603→            <Button variant="outline" className="h-11 px-8" asChild>
+   604→              <a href="#architecture">Read Documentation</a>
+   605→            </Button>
+   606→          </div>
+   607→        </div>
+   608→      </section>
+   609→
+   610→      {/* ─── Footer ──────────────────────────────────────────────────── */}
+   611→      <footer className="mt-auto border-t border-border bg-card">
+   612→        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+   613→          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+   614→            <div className="flex items-center gap-2">
+   615→              <div className="w-6 h-6 rounded bg-emerald-600 flex items-center justify-center" aria-hidden="true">
+   616→                <Brain className="h-3.5 w-3.5 text-white" />
+   617→              </div>
+   618→              <span className="font-bold text-sm">IndustryX</span>
+   619→              <span className="text-[10px] text-muted-foreground">Knowledge MCP</span>
+   620→            </div>
+   621→            <nav aria-label="Footer navigation" className="flex items-center gap-6 text-xs text-muted-foreground">
+   622→              <a href="#problem" className="hover:text-foreground transition-colors">Problem</a>
+   623→              <a href="#solution" className="hover:text-foreground transition-colors">Solution</a>
+   624→              <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+   625→              <a href="#mcp" className="hover:text-foreground transition-colors">MCP</a>
+   626→              <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+   627→              <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
+   628→            </nav>
+   629→            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+   630→              <span>Knowledge MCP Platform</span>
+   631→              <span>v1.2.0</span>
+   632→              <span>&copy; {new Date().getFullYear()}</span>
+   633→            </div>
+   634→          </div>
+   635→        </div>
+   636→      </footer>
+   637→    </div>
+   638→  )
+   639→}
+   640→

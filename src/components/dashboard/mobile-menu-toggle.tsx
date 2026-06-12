@@ -5,6 +5,17 @@ import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CtaButton } from './cta-button'
 
+const MOBILE_NAV_LINKS = [
+  { href: '#problem', label: 'Problem' },
+  { href: '#solution', label: 'Solution' },
+  { href: '#comparison', label: 'Compare' },
+  { href: '#live-demo', label: 'Live Demo' },
+  { href: '#features', label: 'Features' },
+  { href: '#mcp', label: 'MCP' },
+  { href: '#pricing', label: 'Pricing' },
+  { href: '#faq', label: 'FAQ' },
+]
+
 export function MobileMenuToggle() {
   const [open, setOpen] = useState(false)
 
@@ -16,13 +27,16 @@ export function MobileMenuToggle() {
 
       {open && (
         <div className="md:hidden fixed top-14 left-0 right-0 z-20 border-t border-border bg-card px-4 py-4 space-y-1 text-sm shadow-lg">
-          <a href="#problem" className="block py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" onClick={() => setOpen(false)}>Problem</a>
-          <a href="#solution" className="block py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" onClick={() => setOpen(false)}>Solution</a>
-          <a href="#knowledge" className="block py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" onClick={() => setOpen(false)}>Knowledge</a>
-          <a href="#mcp" className="block py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" onClick={() => setOpen(false)}>MCP</a>
-          <a href="#features" className="block py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" onClick={() => setOpen(false)}>Features</a>
-          <a href="#pricing" className="block py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" onClick={() => setOpen(false)}>Pricing</a>
-          <a href="#faq" className="block py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" onClick={() => setOpen(false)}>FAQ</a>
+          {MOBILE_NAV_LINKS.map(link => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="block py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              {link.label}
+            </a>
+          ))}
           <div className="pt-2 border-t border-border">
             <CtaButton className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setOpen(false)}>
               Get Started

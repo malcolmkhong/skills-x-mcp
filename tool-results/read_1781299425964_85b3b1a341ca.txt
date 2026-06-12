@@ -1,0 +1,747 @@
+     1→'use client'
+     2→
+     3→import React from 'react'
+     4→import {
+     5→  Brain, Server, Search, Key, Zap, Shield, ArrowRight, Check,
+     6→  BarChart3, Database, Globe, Code2, Layers, Lock, Sparkles,
+     7→  BookOpen, Cpu, ArrowDown, FileText, AlertTriangle, X,
+     8→  GitBranch, Users, TrendingUp, Target, ChevronRight,
+     9→} from 'lucide-react'
+    10→import { Button } from '@/components/ui/button'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Card, CardContent } from '@/components/ui/card'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import { LoginDropdown } from './login-dropdown'
+    15→import { CtaButton } from './cta-button'
+    16→import { MobileMenuToggle } from './mobile-menu-toggle'
+    17→import {
+    18→  FadeIn,
+    19→  StaggerContainer,
+    20→  StaggerItem,
+    21→  ScaleIn,
+    22→  SlideIn,
+    23→} from './landing-animations'
+    24→
+    25→// ─── Data Constants ──────────────────────────────────────────────────────────
+    26→
+    27→const PROBLEMS = [
+    28→  { icon: AlertTriangle, title: 'Context Bloat', desc: 'Loading 500+ markdown files into context wastes tokens and degrades response quality.' },
+    29→  { icon: Zap, title: 'Token Waste', desc: 'Every unnecessary token costs money. Bloated context means higher bills and slower inference.' },
+    30→  { icon: FileText, title: 'Duplicate Instructions', desc: 'Same rules repeated across files. Contradictions emerge. AI gets confused.' },
+    31→  { icon: GitBranch, title: 'Knowledge Fragmentation', desc: 'Knowledge scattered across repos, wikis, and docs. No single source of truth.' },
+    32→  { icon: X, title: 'Maintenance Nightmare', desc: 'Updating one standard means editing 20 files. Version conflicts everywhere.' },
+    33→  { icon: Users, title: 'Difficult Onboarding', desc: 'New agents need entire knowledge bases loaded. No selective retrieval.' },
+    34→]
+    35→
+    36→const SOLUTION_STEPS = [
+    37→  { num: '01', title: 'Search', desc: 'Agent sends a natural language query to the IndustryX MCP server.' },
+    38→  { num: '02', title: 'Retrieve', desc: 'Hybrid scoring finds the most relevant knowledge units — not everything.' },
+    39→  { num: '03', title: 'Rank', desc: 'Vector similarity + keyword match + category + intent + usage weighting.' },
+    40→  { num: '04', title: 'Assemble Context', desc: 'Context builder packages results within a configurable token budget.' },
+    41→  { num: '05', title: 'Generate', desc: 'Agent receives optimized context. Better inputs. Better outputs. Lower cost.' },
+    42→]
+    43→
+    44→const FEATURES = [
+    45→  { icon: Brain, title: 'AI-Native Knowledge', desc: 'Structured JSON Knowledge Units — not markdown. Built for AI agents, not humans reading files.', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+    46→  { icon: Search, title: 'Semantic Retrieval', desc: 'Vector search + keyword match + category + intent scoring. Only retrieve what\'s relevant.', color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-950/30' },
+    47→  { icon: Server, title: 'MCP Server', desc: 'Remote MCP server over SSE. Connect Claude Code, Cursor, VS Code, or any MCP-compatible agent.', color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/30' },
+    48→  { icon: Zap, title: 'Token Optimization', desc: 'Context builder with token budget. Reduce tokens. Reduce context size. Improve AI quality.', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
+    49→  { icon: Key, title: 'API Key Management', desc: 'Generate, rotate, revoke API keys. Rate limiting. Usage tracking. Multiple keys per user.', color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-950/30' },
+    50→  { icon: Shield, title: 'Auth & Workspaces', desc: 'GitHub/Google OAuth. Team workspaces. Role-based access. Organization management.', color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
+    51→]
+    52→
+    53→const KNOWLEDGE_TYPES = [
+    54→  { icon: Code2, label: 'Skills', desc: 'Reusable AI skills and capabilities' },
+    55→  { icon: BookOpen, label: 'SOPs', desc: 'Standard operating procedures' },
+    56→  { icon: Layers, label: 'Architecture', desc: 'System architecture documents' },
+    57→  { icon: Shield, label: 'Security', desc: 'Security standards & practices' },
+    58→  { icon: BarChart3, label: 'Economy', desc: 'Game economy & monetization' },
+    59→  { icon: Globe, label: 'Deployment', desc: 'CI/CD & deployment knowledge' },
+    60→  { icon: Database, label: 'Standards', desc: 'UI/UX, backend, frontend standards' },
+    61→  { icon: Cpu, label: 'Analytics', desc: 'Analytics & live ops knowledge' },
+    62→]
+    63→
+    64→const MCP_TOOLS_LIST = [
+    65→  { name: 'search_knowledge', desc: 'Hybrid search across all knowledge', params: 'query, limit?' },
+    66→  { name: 'retrieve_knowledge', desc: 'Get a specific document by slug', params: 'slug' },
+    67→  { name: 'build_context', desc: 'Build optimized AI context with token budget', params: 'query, maxDocuments?, maxTokenBudget?' },
+    68→  { name: 'search_skills', desc: 'Search skills category', params: 'query, limit?' },
+    69→  { name: 'search_sops', desc: 'Search SOPs category', params: 'query, limit?' },
+    70→  { name: 'search_architecture', desc: 'Search architecture category', params: 'query, limit?' },
+    71→  { name: 'search_security', desc: 'Search security category', params: 'query, limit?' },
+    72→  { name: 'search_game_system', desc: 'Search game systems category', params: 'query, limit?' },
+    73→]
+    74→
+    75→const MCP_CLIENTS = [
+    76→  { name: 'Claude Code', desc: 'Add to claude_desktop_config.json' },
+    77→  { name: 'Cursor', desc: 'Add to MCP settings with SSE transport' },
+    78→  { name: 'VS Code', desc: 'Use the MCP extension for VS Code' },
+    79→  { name: 'OpenCode', desc: 'Configure SSE endpoint in settings' },
+    80→  { name: 'Codex', desc: 'Connect via MCP protocol adapter' },
+    81→  { name: 'Custom Agents', desc: 'SSE + JSON-RPC 2.0 standard' },
+    82→]
+    83→
+    84→const PLANS = [
+    85→  {
+    86→    name: 'Free', price: '$0', period: '/month', desc: 'Get started free forever',
+    87→    features: ['Personal account', 'Basic MCP access', '1,000 API requests/mo', '1 API key', '100 knowledge units', 'Community support'],
+    88→    cta: 'Get Started Free', popular: false,
+    89→  },
+    90→  {
+    91→    name: 'Pro', price: '$21', originalPrice: '$30', period: '/month', desc: 'Launch special — 30% off',
+    92→    features: ['50,000 API requests/mo', '5 API keys', '5,000 knowledge units', '5 team members', '3 workspaces', 'Advanced analytics', 'Priority retrieval'],
+    93→    cta: 'Start Pro Trial', popular: true,
+    94→  },
+    95→  {
+    96→    name: 'Ultra', price: '$100', originalPrice: '$250', period: '/month', desc: '60% off launch price',
+    97→    features: ['500,000 API requests/mo', '50 API keys', '50,000 knowledge units', '25 team members', '10 workspaces', 'Team workspaces', 'Premium support', 'Custom knowledge packs'],
+    98→    cta: 'Go Ultra', popular: false,
+    99→  },
+   100→]
+   101→
+   102→const FAQS = [
+   103→  { question: 'What is IndustryX Knowledge MCP Platform?', answer: 'IndustryX is an AI-native knowledge management platform that provides a Model Context Protocol (MCP) server for AI agents. It stores knowledge as structured JSON units — not markdown — and enables semantic retrieval so AI agents only load relevant context, reducing token usage by 80%+ while improving response quality.' },
+   104→  { question: 'What is MCP (Model Context Protocol)?', answer: 'MCP is an open protocol that allows AI agents to connect to external data sources and tools. IndustryX implements MCP as a remote server using SSE (Server-Sent Events) transport and JSON-RPC 2.0, enabling any MCP-compatible client like Claude Code, Cursor, or VS Code to retrieve knowledge on demand.' },
+   105→  { question: 'How does semantic retrieval work?', answer: 'IndustryX uses a hybrid retrieval system that combines vector embedding similarity (40% weight), keyword matching (20%), category matching (15%), intent matching (15%), and usage weighting (10%). This ensures that AI agents receive the most relevant knowledge units without loading entire knowledge bases into context.' },
+   106→  { question: 'How does IndustryX reduce token usage?', answer: 'Instead of loading all knowledge into an AI\'s context window, IndustryX\'s context builder retrieves only the top relevant documents within a configurable token budget. Average token savings exceed 80% compared to loading full knowledge bases, with search latency under 100ms and context building under 500ms.' },
+   107→  { question: 'What are JSON Knowledge Units?', answer: 'JSON Knowledge Units are structured data objects that replace traditional markdown documentation. Each unit contains: slug, title, category, tags, intents (for matching user queries), rules, anti-patterns, implementation steps, dependencies, references, and metadata. This structure makes knowledge machine-readable and optimizable for semantic search.' },
+   108→  { question: 'How do I connect my AI agent to IndustryX?', answer: 'Generate an API key from the IndustryX dashboard, then add the MCP server configuration to your client. For Claude Code, add to claude_desktop_config.json. For Cursor, VS Code, and other MCP clients, configure the SSE endpoint similarly.' },
+   109→  { question: 'Is there a free plan available?', answer: 'Yes. IndustryX offers a free forever plan that includes a personal account, basic MCP access, 1,000 API requests per month, 1 API key, and 100 knowledge units. No credit card required. Pro plans start at $21/month with launch pricing.' },
+   110→  { question: 'What types of knowledge can I store?', answer: 'IndustryX supports 8+ knowledge categories: Skills, SOPs, Architecture, Security, Economy, Deployment, Standards, and Analytics. Custom categories are also supported.' },
+   111→]
+   112→
+   113→// ─── Landing Page (Client Component) ────────────────────────────────────────
+   114→
+   115→export default function LandingPage() {
+   116→  return (
+   117→    <div className="min-h-screen flex flex-col bg-background">
+   118→
+   119→      {/* ─── Navbar ──────────────────────────────────────────────────── */}
+   120→      <header className="sticky top-0 z-30 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+   121→        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+   122→          <div className="flex items-center gap-2.5">
+   123→            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center" aria-hidden="true">
+   124→              <Brain className="h-4.5 w-4.5 text-white" />
+   125→            </div>
+   126→            <div>
+   127→              <span className="font-bold text-sm">IndustryX</span>
+   128→              <span className="text-[10px] text-muted-foreground ml-1.5 hidden sm:inline">Knowledge MCP</span>
+   129→            </div>
+   130→          </div>
+   131→
+   132→          <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground" aria-label="Main navigation">
+   133→            <a href="#problem" className="hover:text-foreground transition-colors">Problem</a>
+   134→            <a href="#solution" className="hover:text-foreground transition-colors">Solution</a>
+   135→            <a href="#knowledge" className="hover:text-foreground transition-colors">Knowledge</a>
+   136→            <a href="#mcp" className="hover:text-foreground transition-colors">MCP</a>
+   137→            <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+   138→            <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+   139→            <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
+   140→          </nav>
+   141→
+   142→          <div className="flex items-center gap-3">
+   143→            <LoginDropdown />
+   144→            <MobileMenuToggle />
+   145→          </div>
+   146→        </div>
+   147→      </header>
+   148→
+   149→      {/* ─── Section 1: Hero ─────────────────────────────────────────── */}
+   150→      <section aria-label="Hero" className="relative overflow-hidden">
+   151→        {/* Background */}
+   152→        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/20" aria-hidden="true" />
+   153→        <div className="absolute top-20 left-1/4 w-72 h-72 bg-emerald-200/30 dark:bg-emerald-800/10 rounded-full blur-3xl" aria-hidden="true" />
+   154→        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-teal-200/20 dark:bg-teal-800/10 rounded-full blur-3xl" aria-hidden="true" />
+   155→
+   156→        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-20 md:py-28 text-center">
+   157→          <StaggerContainer stagger={0.1} className="flex flex-col items-center">
+   158→            <StaggerItem>
+   159→              <Badge variant="outline" className="mb-6 px-3 py-1 text-xs border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30">
+   160→                <Sparkles className="h-3 w-3 mr-1.5" aria-hidden="true" />
+   161→                AI Knowledge Infrastructure for Coding Agents
+   162→              </Badge>
+   163→            </StaggerItem>
+   164→
+   165→            <StaggerItem>
+   166→              <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
+   167→                AI-Native Knowledge
+   168→                <br />
+   169→                <span className="text-emerald-600 dark:text-emerald-400">Infrastructure</span>
+   170→                <br />
+   171→                for Coding Agents
+   172→              </h1>
+   173→            </StaggerItem>
+   174→
+   175→            <StaggerItem>
+   176→              <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+   177→                Connect Claude Code, OpenCode, Codex, Cursor, VS Code, and future MCP-compatible
+   178→                agents to a centralized retrieval platform built for high-quality AI outputs.
+   179→              </p>
+   180→            </StaggerItem>
+   181→
+   182→            <StaggerItem>
+   183→              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+   184→                <CtaButton
+   185→                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-12 px-8 text-base font-medium"
+   186→                  showArrow
+   187→                >
+   188→                  Get Started
+   189→                </CtaButton>
+   190→                <Button variant="outline" className="h-12 px-8 text-base" asChild>
+   191→                  <a href="#architecture">View Documentation</a>
+   192→                </Button>
+   193→              </div>
+   194→            </StaggerItem>
+   195→
+   196→            {/* Supported Clients */}
+   197→            <StaggerItem>
+   198→              <div className="mt-12">
+   199→                <p className="text-xs text-muted-foreground mb-4 uppercase tracking-wider">Supported MCP Clients</p>
+   200→                <div className="flex flex-wrap items-center justify-center gap-4">
+   201→                  {['Claude Code', 'Cursor', 'VS Code', 'OpenCode', 'Codex'].map(client => (
+   202→                    <div key={client} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 bg-card/50 text-xs font-medium text-muted-foreground">
+   203→                      <Code2 className="h-3 w-3" aria-hidden="true" />
+   204→                      {client}
+   205→                    </div>
+   206→                  ))}
+   207→                </div>
+   208→              </div>
+   209→            </StaggerItem>
+   210→
+   211→            {/* Stats */}
+   212→            <StaggerItem>
+   213→              <div className="mt-10 flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground">
+   214→                <div className="flex items-center gap-2">
+   215→                  <Database className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+   216→                  <span><strong className="text-foreground">10K+</strong> Knowledge Units</span>
+   217→                </div>
+   218→                <div className="flex items-center gap-2">
+   219→                  <Zap className="h-4 w-4 text-amber-600" aria-hidden="true" />
+   220→                  <span><strong className="text-foreground">&lt;100ms</strong> Search</span>
+   221→                </div>
+   222→                <div className="flex items-center gap-2">
+   223→                  <Server className="h-4 w-4 text-violet-600" aria-hidden="true" />
+   224→                  <span><strong className="text-foreground">8</strong> MCP Tools</span>
+   225→                </div>
+   226→                <div className="flex items-center gap-2">
+   227→                  <Lock className="h-4 w-4 text-rose-600" aria-hidden="true" />
+   228→                  <span><strong className="text-foreground">API Key</strong> Access</span>
+   229→                </div>
+   230→              </div>
+   231→            </StaggerItem>
+   232→          </StaggerContainer>
+   233→        </div>
+   234→      </section>
+   235→
+   236→      {/* ─── Section 2: The Problem ───────────────────────────────────── */}
+   237→      <section id="problem" aria-labelledby="problem-heading" className="py-20 md:py-24 bg-card/50 border-y border-border">
+   238→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   239→          <div className="text-center mb-14">
+   240→            <FadeIn delay={0}>
+   241→              <Badge variant="outline" className="mb-3 text-xs border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 bg-red-50/50 dark:bg-red-950/30">
+   242→                <AlertTriangle className="h-3 w-3 mr-1.5" aria-hidden="true" />
+   243→                The Problem
+   244→              </Badge>
+   245→            </FadeIn>
+   246→            <FadeIn delay={0.1}>
+   247→              <h2 id="problem-heading" className="text-3xl sm:text-4xl font-bold">
+   248→                The Traditional Workflow Is Broken
+   249→              </h2>
+   250→            </FadeIn>
+   251→            <FadeIn delay={0.2}>
+   252→              <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
+   253→                AI coding agents load entire knowledge bases into context. The result: wasted tokens, slow responses, and inconsistent outputs.
+   254→              </p>
+   255→            </FadeIn>
+   256→          </div>
+   257→
+   258→          {/* Pain Flow */}
+   259→          <FadeIn delay={0.1} className="mb-14 max-w-4xl mx-auto">
+   260→            <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+   261→              {[
+   262→                { label: 'AI Agent', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+   263→                { label: 'Loads 500 MD Files', color: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' },
+   264→                { label: 'Bloated Context', color: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' },
+   265→                { label: 'High Token Cost', color: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' },
+   266→                { label: 'Slow Responses', color: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' },
+   267→                { label: 'Inconsistent Outputs', color: 'bg-red-100 text-red-900 dark:bg-red-950/60 dark:text-red-200 font-semibold' },
+   268→              ].map((item, i) => (
+   269→                <React.Fragment key={item.label}>
+   270→                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${item.color}`}>
+   271→                    {item.label}
+   272→                  </div>
+   273→                  {i < 5 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" aria-hidden="true" />}
+   274→                </React.Fragment>
+   275→              ))}
+   276→            </div>
+   277→          </FadeIn>
+   278→
+   279→          {/* Problem Cards */}
+   280→          <StaggerContainer stagger={0.08} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+   281→            {PROBLEMS.map(p => {
+   282→              const Icon = p.icon
+   283→              return (
+   284→                <StaggerItem key={p.title}>
+   285→                  <article className="group border border-red-100 dark:border-red-950/40 rounded-xl bg-background hover:border-red-200 dark:hover:border-red-800 transition-all duration-200">
+   286→                    <div className="p-6">
+   287→                      <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4 bg-red-50 dark:bg-red-950/30">
+   288→                        <Icon className="h-5 w-5 text-red-600 dark:text-red-400" aria-hidden="true" />
+   289→                      </div>
+   290→                      <h3 className="font-semibold text-base mb-1.5">{p.title}</h3>
+   291→                      <p className="text-sm text-muted-foreground leading-relaxed">{p.desc}</p>
+   292→                    </div>
+   293→                  </article>
+   294→                </StaggerItem>
+   295→              )
+   296→            })}
+   297→          </StaggerContainer>
+   298→        </div>
+   299→      </section>
+   300→
+   301→      {/* ─── Section 3: The Solution ──────────────────────────────────── */}
+   302→      <section id="solution" aria-labelledby="solution-heading" className="py-20 md:py-24">
+   303→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   304→          <div className="text-center mb-14">
+   305→            <FadeIn delay={0}>
+   306→              <Badge variant="outline" className="mb-3 text-xs border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30">
+   307→                <Sparkles className="h-3 w-3 mr-1.5" aria-hidden="true" />
+   308→                The Solution
+   309→              </Badge>
+   310→            </FadeIn>
+   311→            <FadeIn delay={0.1}>
+   312→              <h2 id="solution-heading" className="text-3xl sm:text-4xl font-bold">
+   313→                The IndustryX Approach
+   314→              </h2>
+   315→            </FadeIn>
+   316→            <FadeIn delay={0.2}>
+   317→              <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
+   318→                One MCP endpoint. Semantic retrieval. Only the knowledge that matters.
+   319→              </p>
+   320→            </FadeIn>
+   321→          </div>
+   322→
+   323→          {/* Solution Flow */}
+   324→          <FadeIn delay={0.1} className="mb-14 max-w-4xl mx-auto">
+   325→            <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+   326→              {[
+   327→                { label: 'AI Agent', color: 'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300' },
+   328→                { label: 'IndustryX MCP', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold' },
+   329→                { label: 'Semantic Retrieval', color: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' },
+   330→                { label: 'Relevant Knowledge', color: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' },
+   331→                { label: 'Optimized Context', color: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' },
+   332→                { label: 'Better Outputs', color: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200 font-semibold' },
+   333→              ].map((item, i) => (
+   334→                <React.Fragment key={item.label}>
+   335→                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${item.color}`}>
+   336→                    {item.label}
+   337→                  </div>
+   338→                  {i < 5 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" aria-hidden="true" />}
+   339→                </React.Fragment>
+   340→              ))}
+   341→            </div>
+   342→          </FadeIn>
+   343→
+   344→          {/* Steps */}
+   345→          <div className="max-w-3xl mx-auto">
+   346→            <StaggerContainer stagger={0.1} className="space-y-4">
+   347→              {SOLUTION_STEPS.map(step => (
+   348→                <StaggerItem key={step.num}>
+   349→                  <div className="flex items-start gap-4 p-5 rounded-xl border border-border/50 bg-card/50 hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+   350→                    <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center shrink-0">
+   351→                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{step.num}</span>
+   352→                    </div>
+   353→                    <div>
+   354→                      <h3 className="font-semibold text-base">{step.title}</h3>
+   355→                      <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{step.desc}</p>
+   356→                    </div>
+   357→                  </div>
+   358→                </StaggerItem>
+   359→              ))}
+   360→            </StaggerContainer>
+   361→          </div>
+   362→        </div>
+   363→      </section>
+   364→
+   365→      {/* ─── Architecture Flow ───────────────────────────────────────── */}
+   366→      <section id="architecture" aria-labelledby="architecture-heading" className="border-y border-border bg-card/50">
+   367→        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14">
+   368→          <FadeIn>
+   369→            <div className="text-center mb-10">
+   370→              <h2 id="architecture-heading" className="text-2xl sm:text-3xl font-bold">How It Works</h2>
+   371→              <p className="mt-2 text-muted-foreground text-sm max-w-lg mx-auto">Every layer optimized for AI-native knowledge delivery.</p>
+   372→            </div>
+   373→          </FadeIn>
+   374→          <StaggerContainer stagger={0.1} className="flex flex-wrap items-center justify-center gap-3 text-sm">
+   375→            {[
+   376→              { label: 'Developer', icon: Users, color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+   377→              { label: 'AI Agent', icon: Cpu, color: 'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300' },
+   378→              { label: 'IndustryX MCP', icon: Server, color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold' },
+   379→              { label: 'Knowledge Engine', icon: Brain, color: 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300' },
+   380→              { label: 'Vector Search', icon: Search, color: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' },
+   381→              { label: 'JSON Knowledge', icon: Database, color: 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300' },
+   382→            ].map((item, i) => (
+   383→              <React.Fragment key={item.label}>
+   384→                <StaggerItem>
+   385→                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${item.color}`}>
+   386→                    <item.icon className="h-3.5 w-3.5" aria-hidden="true" />
+   387→                    {item.label}
+   388→                  </div>
+   389→                </StaggerItem>
+   390→                {i < 5 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" aria-hidden="true" />}
+   391→              </React.Fragment>
+   392→            ))}
+   393→          </StaggerContainer>
+   394→        </div>
+   395→      </section>
+   396→
+   397→      {/* ─── Features ────────────────────────────────────────────────── */}
+   398→      <section id="features" aria-labelledby="features-heading" className="py-20 md:py-24">
+   399→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   400→          <div className="text-center mb-14">
+   401→            <FadeIn delay={0}>
+   402→              <Badge variant="outline" className="mb-3 text-xs">Platform Features</Badge>
+   403→            </FadeIn>
+   404→            <FadeIn delay={0.1}>
+   405→              <h2 id="features-heading" className="text-3xl sm:text-4xl font-bold">Built for AI agents.<br />Managed by humans.</h2>
+   406→            </FadeIn>
+   407→            <FadeIn delay={0.2}>
+   408→              <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Every feature designed for semantic retrieval — never load all knowledge into context.</p>
+   409→            </FadeIn>
+   410→          </div>
+   411→
+   412→          <StaggerContainer stagger={0.08} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+   413→            {FEATURES.map(f => {
+   414→              const Icon = f.icon
+   415→              return (
+   416→                <StaggerItem key={f.title}>
+   417→                  <article className="group hover:shadow-lg transition-all duration-200 border border-border/50 rounded-xl">
+   418→                    <div className="p-6">
+   419→                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 ${f.bg}`}>
+   420→                        <Icon className={`h-5 w-5 ${f.color}`} aria-hidden="true" />
+   421→                      </div>
+   422→                      <h3 className="font-semibold text-base mb-1.5">{f.title}</h3>
+   423→                      <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+   424→                    </div>
+   425→                  </article>
+   426→                </StaggerItem>
+   427→              )
+   428→            })}
+   429→          </StaggerContainer>
+   430→        </div>
+   431→      </section>
+   432→
+   433→      {/* ─── Knowledge Types ─────────────────────────────────────────── */}
+   434→      <section id="knowledge" aria-labelledby="knowledge-heading" className="py-20 md:py-24 bg-card/50 border-y border-border">
+   435→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   436→          <div className="text-center mb-14">
+   437→            <FadeIn delay={0}>
+   438→              <Badge variant="outline" className="mb-3 text-xs">Knowledge System</Badge>
+   439→            </FadeIn>
+   440→            <FadeIn delay={0.1}>
+   441→              <h2 id="knowledge-heading" className="text-3xl sm:text-4xl font-bold">AI-Native JSON Knowledge Units</h2>
+   442→            </FadeIn>
+   443→            <FadeIn delay={0.2}>
+   444→              <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Replace markdown with structured, searchable, AI-optimized knowledge.</p>
+   445→            </FadeIn>
+   446→          </div>
+   447→
+   448→          <StaggerContainer stagger={0.06} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+   449→            {KNOWLEDGE_TYPES.map(k => {
+   450→              const Icon = k.icon
+   451→              return (
+   452→                <StaggerItem key={k.label}>
+   453→                  <article className="flex flex-col items-center text-center p-4 rounded-xl border border-border/50 bg-background hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+   454→                    <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center mb-2.5">
+   455→                      <Icon className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+   456→                    </div>
+   457→                    <h3 className="font-medium text-sm">{k.label}</h3>
+   458→                    <p className="text-xs text-muted-foreground mt-1">{k.desc}</p>
+   459→                  </article>
+   460→                </StaggerItem>
+   461→              )
+   462→            })}
+   463→          </StaggerContainer>
+   464→
+   465→          {/* JSON Schema Preview */}
+   466→          <SlideIn direction="right" delay={0.2} className="mt-10 max-w-2xl mx-auto border border-border/50 rounded-xl">
+   467→            <div className="p-5">
+   468→              <h3 className="font-mono text-xs font-semibold text-emerald-600 mb-3">knowledge/skills/ui-ux-pro-max.json</h3>
+   469→              <pre className="text-xs font-mono text-muted-foreground leading-relaxed overflow-x-auto" aria-label="Example JSON knowledge unit schema">
+   470→{`{
+   471→  "slug": "ui-ux-pro-max",
+   472→  "title": "UI/UX Pro Max Standards",
+   473→  "category": "skills",
+   474→  "tags": ["ui", "ux", "design", "accessibility"],
+   475→  "intents": ["design ui", "improve ux", "accessibility audit"],
+   476→  "rules": ["Use semantic HTML", "44px min touch targets"],
+   477→  "antiPatterns": ["Inline styles", "!important overrides"],
+   478→  "implementationSteps": ["Audit current UI", ...],
+   479→  "dependencies": ["design-system-core"]
+   480→}`}
+   481→              </pre>
+   482→            </div>
+   483→          </SlideIn>
+   484→        </div>
+   485→      </section>
+   486→
+   487→      {/* ─── MCP Server ──────────────────────────────────────────────── */}
+   488→      <section id="mcp" aria-labelledby="mcp-heading" className="py-20 md:py-24">
+   489→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   490→          <div className="text-center mb-14">
+   491→            <FadeIn delay={0}>
+   492→              <Badge variant="outline" className="mb-3 text-xs">MCP Protocol</Badge>
+   493→            </FadeIn>
+   494→            <FadeIn delay={0.1}>
+   495→              <h2 id="mcp-heading" className="text-3xl sm:text-4xl font-bold">Connect Any AI Agent</h2>
+   496→            </FadeIn>
+   497→            <FadeIn delay={0.2}>
+   498→              <p className="mt-3 text-muted-foreground max-w-xl mx-auto">One MCP server. SSE transport. JSON-RPC 2.0. Your agents get knowledge on demand.</p>
+   499→            </FadeIn>
+   500→          </div>
+   501→
+   502→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+   503→            <div>
+   504→              <FadeIn delay={0.1}>
+   505→                <h3 className="font-semibold mb-4 flex items-center gap-2">
+   506→                  <Server className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+   507→                  8 MCP Tools Available
+   508→                </h3>
+   509→              </FadeIn>
+   510→              <StaggerContainer stagger={0.06} className="space-y-2">
+   511→                {MCP_TOOLS_LIST.map(tool => (
+   512→                  <StaggerItem key={tool.name}>
+   513→                    <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
+   514→                      <code className="text-xs font-mono text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded shrink-0">
+   515→                        {tool.name}
+   516→                      </code>
+   517→                      <div>
+   518→                        <p className="text-xs text-muted-foreground">{tool.desc}</p>
+   519→                        <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5">params: {tool.params}</p>
+   520→                      </div>
+   521→                    </div>
+   522→                  </StaggerItem>
+   523→                ))}
+   524→              </StaggerContainer>
+   525→            </div>
+   526→
+   527→            <div>
+   528→              <FadeIn delay={0.1}>
+   529→                <h3 className="font-semibold mb-4 flex items-center gap-2">
+   530→                  <Code2 className="h-4 w-4 text-violet-600" aria-hidden="true" />
+   531→                  Supported MCP Clients
+   532→                </h3>
+   533→              </FadeIn>
+   534→              <StaggerContainer stagger={0.06} className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+   535→                {MCP_CLIENTS.map(client => (
+   536→                  <StaggerItem key={client.name}>
+   537→                    <div className="p-3 rounded-lg border border-border/50 bg-card">
+   538→                      <p className="text-sm font-medium">{client.name}</p>
+   539→                      <p className="text-xs text-muted-foreground mt-0.5">{client.desc}</p>
+   540→                    </div>
+   541→                  </StaggerItem>
+   542→                ))}
+   543→              </StaggerContainer>
+   544→
+   545→              <FadeIn delay={0.3}>
+   546→                <div className="bg-gray-950 text-gray-100 rounded-xl overflow-hidden">
+   547→                  <div className="p-4">
+   548→                    <p className="text-[10px] text-gray-400 mb-2 font-mono">{'// claude_desktop_config.json'}</p>
+   549→                    <pre className="text-xs font-mono leading-relaxed text-emerald-400" aria-label="MCP client configuration example">
+   550→{`{
+   551→  "mcpServers": {
+   552→    "industryx": {
+   553→      "url": "https://your-server.com/sse",
+   554→      "headers": {
+   555→        "Authorization": "Bearer ixk_your_api_key"
+   556→      }
+   557→    }
+   558→  }
+   559→}`}
+   560→                    </pre>
+   561→                  </div>
+   562→                </div>
+   563→              </FadeIn>
+   564→            </div>
+   565→          </div>
+   566→        </div>
+   567→      </section>
+   568→
+   569→      {/* ─── Token Savings ───────────────────────────────────────────── */}
+   570→      <section aria-label="Token savings" className="py-20 md:py-24 bg-emerald-600 text-white">
+   571→        <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
+   572→          <FadeIn>
+   573→            <h2 className="text-3xl sm:text-4xl font-bold">Reduce Tokens. Improve Quality.</h2>
+   574→          </FadeIn>
+   575→          <FadeIn delay={0.1}>
+   576→            <p className="mt-3 text-emerald-100 text-lg max-w-xl mx-auto">
+   577→              Instead of loading all knowledge into context, retrieve only what&apos;s relevant.
+   578→            </p>
+   579→          </FadeIn>
+   580→
+   581→          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+   582→            {[
+   583→              { value: '80%+', label: 'Token Reduction', sub: 'vs. loading full knowledge base' },
+   584→              { value: '<100ms', label: 'Search Latency', sub: 'semantic vector search' },
+   585→              { value: '<500ms', label: 'Context Build', sub: 'including ranking & retrieval' },
+   586→            ].map((stat, i) => (
+   587→              <ScaleIn key={stat.label} delay={0.15 + i * 0.1}>
+   588→                <div className="p-6 rounded-xl bg-white/10 backdrop-blur-sm">
+   589→                  <p className="text-4xl font-extrabold">{stat.value}</p>
+   590→                  <p className="text-sm font-medium mt-1">{stat.label}</p>
+   591→                  <p className="text-xs text-emerald-200 mt-1">{stat.sub}</p>
+   592→                </div>
+   593→              </ScaleIn>
+   594→            ))}
+   595→          </div>
+   596→        </div>
+   597→      </section>
+   598→
+   599→      {/* ─── FAQ ─────────────────────────────────────────────────────── */}
+   600→      <section id="faq" aria-labelledby="faq-heading" className="py-20 md:py-24">
+   601→        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+   602→          <div className="text-center mb-14">
+   603→            <FadeIn delay={0}>
+   604→              <Badge variant="outline" className="mb-3 text-xs">FAQ</Badge>
+   605→            </FadeIn>
+   606→            <FadeIn delay={0.1}>
+   607→              <h2 id="faq-heading" className="text-3xl sm:text-4xl font-bold">Frequently Asked Questions</h2>
+   608→            </FadeIn>
+   609→            <FadeIn delay={0.2}>
+   610→              <p className="mt-3 text-muted-foreground">Everything you need to know about IndustryX Knowledge MCP Platform.</p>
+   611→            </FadeIn>
+   612→          </div>
+   613→
+   614→          <StaggerContainer stagger={0.07} className="space-y-4">
+   615→            {FAQS.map((faq, i) => (
+   616→              <StaggerItem key={i}>
+   617→                <article className="border border-border/50 rounded-xl p-5">
+   618→                  <h3 className="font-semibold text-sm mb-2">{faq.question}</h3>
+   619→                  <p className="text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+   620→                </article>
+   621→              </StaggerItem>
+   622→            ))}
+   623→          </StaggerContainer>
+   624→        </div>
+   625→      </section>
+   626→
+   627→      {/* ─── Pricing ─────────────────────────────────────────────────── */}
+   628→      <section id="pricing" aria-labelledby="pricing-heading" className="py-20 md:py-24 bg-card/50 border-y border-border">
+   629→        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   630→          <div className="text-center mb-14">
+   631→            <FadeIn delay={0}>
+   632→              <Badge variant="outline" className="mb-3 text-xs">Simple Pricing</Badge>
+   633→            </FadeIn>
+   634→            <FadeIn delay={0.1}>
+   635→              <h2 id="pricing-heading" className="text-3xl sm:text-4xl font-bold">Start free. Scale infinitely.</h2>
+   636→            </FadeIn>
+   637→            <FadeIn delay={0.2}>
+   638→              <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Launch special pricing — lock in discounts before they expire.</p>
+   639→            </FadeIn>
+   640→          </div>
+   641→
+   642→          <StaggerContainer stagger={0.12} className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+   643→            {PLANS.map(plan => (
+   644→              <StaggerItem key={plan.name}>
+   645→                <article className={`relative border rounded-xl ${plan.popular ? 'border-emerald-300 dark:border-emerald-700 shadow-lg' : 'border-border/50'}`}>
+   646→                  {plan.popular && (
+   647→                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+   648→                      <Badge className="bg-emerald-600 text-white text-[10px] px-2.5">Most Popular</Badge>
+   649→                    </div>
+   650→                  )}
+   651→                  <div className="p-6">
+   652→                    <h3 className="font-bold text-lg">{plan.name}</h3>
+   653→                    <div className="mt-2 flex items-baseline gap-1">
+   654→                      <span className="text-3xl font-extrabold">{plan.price}</span>
+   655→                      <span className="text-muted-foreground text-sm">{plan.period}</span>
+   656→                      {plan.originalPrice && (
+   657→                        <span className="text-sm text-muted-foreground line-through ml-1">{plan.originalPrice}</span>
+   658→                      )}
+   659→                    </div>
+   660→                    <p className="text-xs text-muted-foreground mt-1">{plan.desc}</p>
+   661→
+   662→                    <Separator className="my-4" />
+   663→
+   664→                    <ul className="space-y-2 mb-6" aria-label={`${plan.name} plan features`}>
+   665→                      {plan.features.map(f => (
+   666→                        <li key={f} className="flex items-start gap-2 text-sm">
+   667→                          <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+   668→                          <span>{f}</span>
+   669→                        </li>
+   670→                      ))}
+   671→                    </ul>
+   672→
+   673→                    <CtaButton
+   674→                      className={`w-full ${plan.popular ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+   675→                      variant={plan.popular ? 'default' : 'outline'}
+   676→                    >
+   677→                      {plan.cta}
+   678→                    </CtaButton>
+   679→                  </div>
+   680→                </article>
+   681→              </StaggerItem>
+   682→            ))}
+   683→          </StaggerContainer>
+   684→
+   685→          <FadeIn delay={0.4}>
+   686→            <p className="text-center text-sm text-muted-foreground mt-6">
+   687→              <strong>Enterprise</strong> — Custom pricing with private MCP deployment, dedicated infrastructure, SSO, and SLA support.
+   688→            </p>
+   689→          </FadeIn>
+   690→        </div>
+   691→      </section>
+   692→
+   693→      {/* ─── CTA ─────────────────────────────────────────────────────── */}
+   694→      <section aria-label="Call to action" className="py-16 md:py-20 bg-background">
+   695→        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+   696→          <FadeIn>
+   697→            <h2 className="text-2xl sm:text-3xl font-bold">Ready to supercharge your AI agents?</h2>
+   698→          </FadeIn>
+   699→          <FadeIn delay={0.1}>
+   700→            <p className="mt-3 text-muted-foreground">One MCP server. One API key. Access all knowledge. Start free today.</p>
+   701→          </FadeIn>
+   702→          <FadeIn delay={0.2}>
+   703→            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+   704→              <CtaButton className="bg-emerald-600 hover:bg-emerald-700 text-white h-11 px-8" showArrow>
+   705→                Get Started Free
+   706→              </CtaButton>
+   707→              <Button variant="outline" className="h-11 px-8" asChild>
+   708→                <a href="#architecture">Read Documentation</a>
+   709→              </Button>
+   710→            </div>
+   711→          </FadeIn>
+   712→        </div>
+   713→      </section>
+   714→
+   715→      {/* ─── Footer ──────────────────────────────────────────────────── */}
+   716→      <footer className="mt-auto border-t border-border bg-card">
+   717→        <FadeIn>
+   718→          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+   719→            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+   720→              <div className="flex items-center gap-2">
+   721→                <div className="w-6 h-6 rounded bg-emerald-600 flex items-center justify-center" aria-hidden="true">
+   722→                  <Brain className="h-3.5 w-3.5 text-white" />
+   723→                </div>
+   724→                <span className="font-bold text-sm">IndustryX</span>
+   725→                <span className="text-[10px] text-muted-foreground">Knowledge MCP</span>
+   726→              </div>
+   727→              <nav aria-label="Footer navigation" className="flex items-center gap-6 text-xs text-muted-foreground">
+   728→                <a href="#problem" className="hover:text-foreground transition-colors">Problem</a>
+   729→                <a href="#solution" className="hover:text-foreground transition-colors">Solution</a>
+   730→                <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+   731→                <a href="#mcp" className="hover:text-foreground transition-colors">MCP</a>
+   732→                <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+   733→                <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
+   734→              </nav>
+   735→              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+   736→                <span>Knowledge MCP Platform</span>
+   737→                <span>v1.2.0</span>
+   738→                <span>&copy; {new Date().getFullYear()}</span>
+   739→              </div>
+   740→            </div>
+   741→          </div>
+   742→        </FadeIn>
+   743→      </footer>
+   744→    </div>
+   745→  )
+   746→}
+   747→
