@@ -1,0 +1,9 @@
+{
+  "name": "industryx-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server for IndustryX Knowledge Base - exposes knowledge retrieval tools via Model Context Protocol",
+  "scripts": {
+    "dev": "bun --hot index.ts"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,57 @@
+// IndustryX Knowledge MCP Server - Database Schema
+// Production: Replace SQLite with PostgreSQL + pgvector for native vector search
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Knowledge {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  title            String
+  category         String   // skills, sops, architecture, security, economy, deployment, ui-standards, backend-standards, frontend-standards, game-economy, trading, marketplace, anti-cheat, analytics, liveops, premium, monetization, cloud-save, offline-sync, etc.
+  description      String   @default("")
+  keywords         String   @default("[]") // JSON array of keywords
+  markdownContent  String   // Full markdown content
+  embedding        String   @default("[]") // JSON array of floats (production: pgvector)
+  version          Int      @default(1)
+  accessCount      Int      @default(0)
+  relevanceScore   Float    @default(0.0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([category])
+  @@index([slug])
+  @@index([isActive])
+  @@index([accessCount])
+}
+
+// Ingestion log for tracking re-indexing operations
+model IngestionLog {
+  id            String   @id @default(cuid())
+  operation     String   // "full_reindex", "category_reindex", "single_update"
+  category      String?
+  documentsProcessed Int  @default(0)
+  status        String   @default("pending") // pending, running, completed, failed
+  errorMessage  String?
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+}
+
+// Retrieval statistics
+model RetrievalStat {
+  id            String   @id @default(cuid())
+  knowledgeId   String
+  query         String
+  score         Float
+  retrievedAt   DateTime @default(now())
+
+  @@index([knowledgeId])
+  @@index([retrievedAt])
+}
