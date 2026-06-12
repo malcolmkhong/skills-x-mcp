@@ -1,6 +1,8 @@
-// IndustryX Knowledge MCP Server - Database Schema
-// AI-Native JSON Knowledge Units — No Markdown Dependency
-// Production: Replace SQLite with PostgreSQL + pgvector for native vector search
+// ─────────────────────────────────────────────────────────────────────────────
+// IndustryX Knowledge MCP Platform - Production Database Schema
+// Designed for migration to PostgreSQL + pgvector
+// Currently running on SQLite for development
+// ─────────────────────────────────────────────────────────────────────────────
 
 generator client {
   provider = "prisma-client-js"
@@ -11,55 +13,352 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Authentication (NextAuth.js) ────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("user") // user, admin, superadmin
+  plan          String    @default("free") // free, pro, ultra, enterprise
+  
+  // Profile fields
+  bio           String?
+  company       String?
+  website       String?
+  githubUsername String?
+  
+  // Subscription
+  stripeCustomerId  String?
+  currentPeriodEnd  DateTime?
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  apiKeys       ApiKey[]
+  workspaces    WorkspaceMember[]
+  usageEvents   UsageEvent[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@index([plan])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String  // github, google
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Workspaces ──────────────────────────────────────────────────────────────
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String   @default("")
+  icon        String?
+  isPersonal  Boolean  @default(false)
+  plan        String   @default("free")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     WorkspaceMember[]
+  knowledge   Knowledge[]
+  apiKeys     ApiKey[]
+
+  @@index([slug])
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String   @default("member") // owner, admin, member, viewer
+  
+  joinedAt    DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+// ─── API Key Management ──────────────────────────────────────────────────────
+
+model ApiKey {
+  id            String    @id @default(cuid())
+  name          String
+  keyPrefix     String    // First 8 chars of the actual key for identification (e.g., "ixk_a1b2")
+  keyHash       String    // SHA-256 hash of the full key for verification
+  userId        String
+  workspaceId   String?
+  
+  // Key metadata
+  permissions   String    @default("read") // read, read_write, admin (JSON array)
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
+  isRevoked     Boolean   @default(false)
+  revokedAt     DateTime?
+  revokedReason String?
+  
+  // Rate limiting
+  rateLimit     Int       @default(100)  // requests per minute
+  monthlyLimit  Int       @default(10000) // requests per month
+  monthlyUsage  Int       @default(0)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  usageEvents   UsageEvent[]
+
+  @@unique([keyHash])
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([keyPrefix])
+  @@index([isRevoked])
+}
+
+// ─── Knowledge System ────────────────────────────────────────────────────────
+
 model Knowledge {
-  id                   String   @id @default(cuid())
-  slug                 String   @unique
+  id                   String    @id @default(cuid())
+  slug                 String    @unique
   title                String
-  category             String   // skills, sops, architecture, security, economy, deployment, etc.
-  description          String   @default("")
-  tags                 String   @default("[]") // JSON array of tags
-  intents              String   @default("[]") // JSON array of intent phrases
-  dependencies         String   @default("[]") // JSON array of dependency slugs
-  antiPatterns         String   @default("[]") // JSON array of anti-patterns
-  implementationSteps  String   @default("[]") // JSON array of implementation steps
-  rules                String   @default("[]") // JSON array of rules
-  examples             String   @default("[]") // JSON array of {name, description} objects
-  references           String   @default("[]") // JSON array of reference slugs
-  embedding            String   @default("[]") // JSON array of floats (production: pgvector)
-  version              Int      @default(1)
-  schemaVersion        String   @default("1.0.0")
-  accessCount          Int      @default(0)
-  relevanceScore       Float    @default(0.0)
-  isActive             Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  category             String    // skills, sops, architecture, security, economy, deployment, etc.
+  description          String    @default("")
+  
+  // AI-Native JSON Knowledge Unit fields
+  tags                 String    @default("[]") // JSON array of tags
+  intents              String    @default("[]") // JSON array of intent phrases
+  dependencies         String    @default("[]") // JSON array of dependency slugs
+  antiPatterns         String    @default("[]") // JSON array of anti-patterns
+  implementationSteps  String    @default("[]") // JSON array of implementation steps
+  rules                String    @default("[]") // JSON array of rules
+  examples             String    @default("[]") // JSON array of {name, description} objects
+  references           String    @default("[]") // JSON array of reference slugs
+  
+  // Embedding (production: pgvector)
+  embedding            String    @default("[]") // JSON array of floats (512-dim hash-based)
+  
+  // Versioning
+  version              Int       @default(1)
+  schemaVersion        String    @default("1.0.0")
+  
+  // Usage tracking
+  accessCount          Int       @default(0)
+  relevanceScore       Float     @default(0.0)
+  
+  // Status
+  isActive             Boolean   @default(true)
+  isPublic             Boolean   @default(true)
+  
+  // Ownership
+  workspaceId          String?
+  createdBy            String?   // userId
+  
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  workspace            Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  retrievalStats       RetrievalStat[]
+  knowledgeVersions    KnowledgeVersion[]
 
   @@index([category])
   @@index([slug])
   @@index([isActive])
   @@index([accessCount])
+  @@index([workspaceId])
+  @@index([createdBy])
 }
 
-// Ingestion log for tracking re-indexing operations
+// Knowledge version history
+model KnowledgeVersion {
+  id            String   @id @default(cuid())
+  knowledgeId   String
+  version       Int
+  title         String
+  content       String   // Full JSON snapshot of the knowledge unit
+  changeSummary String?
+  
+  createdBy     String?  // userId
+  createdAt     DateTime @default(now())
+
+  knowledge     Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@unique([knowledgeId, version])
+  @@index([knowledgeId])
+}
+
+// ─── Ingestion ──────────────────────────────────────────────────────────────
+
 model IngestionLog {
-  id                 String   @id @default(cuid())
-  operation          String   // "full_reindex", "category_reindex", "single_update"
+  id                 String    @id @default(cuid())
+  operation          String    // "full_reindex", "category_reindex", "single_update"
   category           String?
-  documentsProcessed Int      @default(0)
-  status             String   @default("pending") // pending, running, completed, failed
+  documentsProcessed Int       @default(0)
+  status             String    @default("pending") // pending, running, completed, failed
   errorMessage       String?
-  startedAt          DateTime @default(now())
+  triggeredBy        String?   // userId
+  
+  startedAt          DateTime  @default(now())
   completedAt        DateTime?
+
+  @@index([status])
+  @@index([startedAt])
 }
 
-// Retrieval statistics
+// ─── Retrieval & Search Analytics ────────────────────────────────────────────
+
 model RetrievalStat {
   id           String   @id @default(cuid())
   knowledgeId  String
   query        String
   score        Float
+  source       String   @default("api") // api, mcp, dashboard
+  
   retrievedAt  DateTime @default(now())
+
+  knowledge    Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
 
   @@index([knowledgeId])
   @@index([retrievedAt])
+  @@index([source])
+}
+
+// ─── Usage & Analytics ──────────────────────────────────────────────────────
+
+model UsageEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  apiKeyId    String?
+  workspaceId String?
+  
+  // Event details
+  eventType   String   // mcp_call, api_call, search, retrieve, context_build, ingest
+  toolName    String?  // For MCP tool calls
+  knowledgeId String?  // If related to a specific knowledge unit
+  query       String?  // Search query if applicable
+  
+  // Performance
+  durationMs  Int      @default(0)
+  tokensUsed  Int      @default(0)
+  tokenSaved  Int      @default(0)
+  
+  // Result
+  success     Boolean  @default(true)
+  errorMessage String?
+  
+  // Metadata
+  userAgent   String?
+  ipAddress   String?
+  
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey      ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([apiKeyId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([workspaceId])
+}
+
+// ─── Notifications ──────────────────────────────────────────────────────────
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  message    String
+  type       String   @default("info") // info, warning, error, success
+  category   String?  // api_key, subscription, system, knowledge
+  isRead     Boolean  @default(false)
+  actionUrl  String?
+  
+  createdAt  DateTime @default(now())
+  readAt     DateTime?
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ─── Subscription Plans ──────────────────────────────────────────────────────
+
+model SubscriptionPlan {
+  id                String   @id @default(cuid())
+  name              String   @unique // free, pro_monthly, pro_yearly, ultra, enterprise
+  displayName       String
+  description       String
+  price             Float    @default(0)
+  currency          String   @default("usd")
+  interval          String   @default("month") // month, year, one_time
+  
+  // Limits
+  apiRequestsPerMonth Int    @default(1000)
+  apiKeysLimit       Int     @default(1)
+  knowledgeUnitsLimit Int    @default(100)
+  teamMembersLimit   Int     @default(1)
+  workspacesLimit    Int     @default(1)
+  
+  // Features
+  features           String  @default("[]") // JSON array of feature strings
+  isPopular          Boolean @default(false)
+  isActive           Boolean @default(true)
+  sortOrder          Int     @default(0)
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
 }

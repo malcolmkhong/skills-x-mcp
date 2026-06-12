@@ -1,14 +1,17 @@
 // IndustryX MCP Server - Tool Definitions
 // AI-Native: 8 MCP tools returning structured JSON, not markdown blobs
 // This is a SKILLS PROVIDER - AI agents call these tools to get knowledge
+// Enhanced: Auth context, permission checks, usage tracking
 
 import {
   searchKnowledge,
   getDocument,
   buildContext,
   listDocuments,
+  trackUsage,
   type SearchResult,
   type KnowledgeDocumentSummary,
+  type AuthContext,
 } from './api-client';
 
 // MCP Tool definition schema
@@ -36,6 +39,26 @@ export interface MCPToolResult {
     text: string;
   }>;
 }
+
+// Permission levels
+const PERMISSION_READ = 'read';
+const PERMISSION_ADMIN = 'admin';
+const PERMISSION_WRITE = 'write';
+
+// Tools that require admin/write permissions (modify data)
+const ADMIN_TOOLS = new Set(['ingest_knowledge', 'rebuild_index']);
+
+// Tools that are read-only
+const READ_TOOLS = new Set([
+  'search_knowledge',
+  'retrieve_knowledge',
+  'build_context',
+  'search_skills',
+  'search_sops',
+  'search_architecture',
+  'search_security',
+  'search_game_system',
+]);
 
 // Category groups for search_game_system
 const GAME_SYSTEM_CATEGORIES = [
@@ -272,18 +295,70 @@ function formatDocument(doc: KnowledgeDocumentSummary): string {
   return JSON.stringify(formatted, null, 2);
 }
 
+/**
+ * Check if the auth context has the required permission for a tool.
+ * Returns true if permitted, or an error message string if not.
+ */
+function checkPermission(toolName: string, authContext: AuthContext | null): string | null {
+  // Admin tools require admin or write permission
+  if (ADMIN_TOOLS.has(toolName)) {
+    if (!authContext) {
+      return `Tool "${toolName}" requires authentication with admin permissions. Connect with an API key that has admin or write access.`;
+    }
+    const hasAdmin = authContext.permissions.includes(PERMISSION_ADMIN) || authContext.permissions.includes(PERMISSION_WRITE);
+    if (!hasAdmin) {
+      return `Tool "${toolName}" requires admin or write permissions. Your API key only has: ${authContext.permissions.join(', ')}`;
+    }
+    return null;
+  }
+
+  // Read tools are available to authenticated users with read permission
+  if (READ_TOOLS.has(toolName)) {
+    // Unauthenticated users can use read tools (with rate limiting handled in index.ts)
+    if (!authContext) {
+      return null; // Allowed, but rate-limited
+    }
+    // Authenticated with any permission including read
+    const hasRead = authContext.permissions.includes(PERMISSION_READ) || 
+                    authContext.permissions.includes(PERMISSION_ADMIN) || 
+                    authContext.permissions.includes(PERMISSION_WRITE);
+    if (!hasRead) {
+      return `Tool "${toolName}" requires read permissions. Your API key has: ${authContext.permissions.join(', ')}`;
+    }
+    return null;
+  }
+
+  // Unknown tools fall through — will be caught as unknown tool in executeTool
+  return null;
+}
+
 // Execute a tool call by name with the given arguments
 export async function executeTool(
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  authContext?: AuthContext | null
 ): Promise<MCPToolResult> {
+  const startTime = Date.now();
+  let success = true;
+  let errorMessage: string | undefined;
+
   try {
+    // Permission check
+    const permError = checkPermission(toolName, authContext ?? null);
+    if (permError) {
+      success = false;
+      errorMessage = permError;
+      return {
+        content: [{ type: 'text', text: `Permission denied: ${permError}` }],
+      };
+    }
+
     switch (toolName) {
       case 'search_knowledge': {
         const query = args.query as string;
         const limit = (args.limit as number) ?? 5;
         const category = args.category as string | undefined;
-        const { results } = await searchKnowledge(query, limit, category);
+        const { results } = await searchKnowledge(query, limit, category, undefined, authContext);
         return {
           content: [{ type: 'text', text: formatSearchResults(results) }],
         };
@@ -291,7 +366,7 @@ export async function executeTool(
 
       case 'retrieve_knowledge': {
         const slug = args.slug as string;
-        const { document } = await getDocument(slug);
+        const { document } = await getDocument(slug, authContext);
         return {
           content: [{ type: 'text', text: formatDocument(document) }],
         };
@@ -302,7 +377,7 @@ export async function executeTool(
         const maxDocuments = (args.maxDocuments as number) ?? 5;
         const maxTokenBudget = (args.maxTokenBudget as number) ?? 5000;
         const category = args.category as string | undefined;
-        const result = await buildContext(query, maxDocuments, maxTokenBudget, category);
+        const result = await buildContext(query, maxDocuments, maxTokenBudget, category, authContext);
         return {
           content: [{
             type: 'text',
@@ -321,7 +396,7 @@ export async function executeTool(
       case 'search_skills': {
         const query = args.query as string;
         const limit = (args.limit as number) ?? 5;
-        const { results } = await searchKnowledge(query, limit, 'skills');
+        const { results } = await searchKnowledge(query, limit, 'skills', undefined, authContext);
         return {
           content: [{ type: 'text', text: formatSearchResults(results) }],
         };
@@ -330,7 +405,7 @@ export async function executeTool(
       case 'search_sops': {
         const query = args.query as string;
         const limit = (args.limit as number) ?? 5;
-        const { results } = await searchKnowledge(query, limit, 'sops');
+        const { results } = await searchKnowledge(query, limit, 'sops', undefined, authContext);
         return {
           content: [{ type: 'text', text: formatSearchResults(results) }],
         };
@@ -339,7 +414,7 @@ export async function executeTool(
       case 'search_architecture': {
         const query = args.query as string;
         const limit = (args.limit as number) ?? 5;
-        const { results } = await searchKnowledge(query, limit, 'architecture');
+        const { results } = await searchKnowledge(query, limit, 'architecture', undefined, authContext);
         return {
           content: [{ type: 'text', text: formatSearchResults(results) }],
         };
@@ -348,7 +423,7 @@ export async function executeTool(
       case 'search_security': {
         const query = args.query as string;
         const limit = (args.limit as number) ?? 5;
-        const { results } = await searchKnowledge(query, limit, 'security');
+        const { results } = await searchKnowledge(query, limit, 'security', undefined, authContext);
         return {
           content: [{ type: 'text', text: formatSearchResults(results) }],
         };
@@ -361,7 +436,7 @@ export async function executeTool(
         const perCategoryLimit = Math.max(limit, 3);
 
         const searchPromises = GAME_SYSTEM_CATEGORIES.map((cat) =>
-          searchKnowledge(query, perCategoryLimit, cat).catch(() => ({
+          searchKnowledge(query, perCategoryLimit, cat, undefined, authContext).catch(() => ({
             results: [] as SearchResult[],
           }))
         );
@@ -400,14 +475,34 @@ export async function executeTool(
         };
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    success = false;
+    errorMessage = error instanceof Error ? error.message : String(error);
     return {
       content: [
         {
           type: 'text',
-          text: `Error executing tool "${toolName}": ${message}`,
+          text: `Error executing tool "${toolName}": ${errorMessage}`,
         },
       ],
     };
+  } finally {
+    // Track usage after each tool call (fire-and-forget)
+    const durationMs = Date.now() - startTime;
+    if (authContext) {
+      trackUsage(
+        {
+          userId: authContext.userId,
+          apiKeyId: authContext.apiKeyId,
+          workspaceId: authContext.workspaceId ?? undefined,
+          eventType: 'mcp_call',
+          toolName,
+          query: (args.query as string) ?? undefined,
+          durationMs,
+          success,
+          errorMessage,
+        },
+        authContext
+      );
+    }
   }
 }

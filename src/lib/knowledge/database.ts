@@ -1,5 +1,6 @@
 // IndustryX Knowledge MCP Server - Database Service
 // AI-Native: CRUD operations for JSON knowledge units
+// Workspace-aware: Supports workspace filtering and ownership
 
 import { db } from '@/lib/db';
 import { generateEmbedding, buildEmbeddingText } from './embedding';
@@ -7,8 +8,9 @@ import type { KnowledgeCategory, KnowledgeCreateInput, KnowledgeUpdateInput, Kno
 
 /**
  * Create a new knowledge document with auto-generated embedding
+ * Supports workspaceId and createdBy for ownership tracking
  */
-export async function createKnowledge(input: KnowledgeCreateInput) {
+export async function createKnowledge(input: KnowledgeCreateInput & { workspaceId?: string; createdBy?: string; isPublic?: boolean }) {
   // Build embedding text from structured fields
   const embeddingText = buildEmbeddingText({
     title: input.title,
@@ -39,6 +41,9 @@ export async function createKnowledge(input: KnowledgeCreateInput) {
       embedding: JSON.stringify(embedding),
       schemaVersion: input.schemaVersion || '1.0.0',
       version: 1,
+      workspaceId: input.workspaceId || null,
+      createdBy: input.createdBy || null,
+      isPublic: input.isPublic !== undefined ? input.isPublic : true,
     },
   });
 }
@@ -62,14 +67,74 @@ export async function getKnowledgeById(id: string) {
 }
 
 /**
- * List all knowledge documents with optional category filter
+ * List all knowledge documents with optional category and workspace filters
  * Excludes embedding to reduce payload
+ * Backward compatible: no workspaceId = public knowledge only (isPublic=true or no workspace)
  */
-export async function listKnowledge(category?: KnowledgeCategory, includeInactive: boolean = false) {
+export async function listKnowledge(
+  category?: KnowledgeCategory,
+  includeInactive: boolean = false,
+  workspaceId?: string
+) {
+  // Build where clause based on filters
+  const where: Record<string, unknown> = {
+    ...(category ? { category } : {}),
+    ...(includeInactive ? {} : { isActive: true }),
+  };
+
+  if (workspaceId) {
+    // When a specific workspace is requested, show that workspace's knowledge + public knowledge
+    where.OR = [
+      { workspaceId },
+      { isPublic: true },
+    ];
+  } else {
+    // No workspace filter: show all public knowledge (backward compatible)
+    // Also includes workspace-scoped knowledge that is public
+    where.isPublic = true;
+  }
+
+  return db.knowledge.findMany({
+    where,
+    orderBy: { updatedAt: 'desc' },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      category: true,
+      description: true,
+      tags: true,
+      intents: true,
+      dependencies: true,
+      antiPatterns: true,
+      implementationSteps: true,
+      rules: true,
+      examples: true,
+      references: true,
+      version: true,
+      schemaVersion: true,
+      accessCount: true,
+      relevanceScore: true,
+      isActive: true,
+      isPublic: true,
+      workspaceId: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true,
+      // Exclude embedding to reduce payload
+    },
+  });
+}
+
+/**
+ * Get all knowledge documents for a specific workspace
+ * This includes both public and private knowledge within the workspace
+ */
+export async function getKnowledgeByWorkspace(workspaceId: string) {
   return db.knowledge.findMany({
     where: {
-      ...(category ? { category } : {}),
-      ...(includeInactive ? {} : { isActive: true }),
+      workspaceId,
+      isActive: true,
     },
     orderBy: { updatedAt: 'desc' },
     select: {
@@ -91,9 +156,11 @@ export async function listKnowledge(category?: KnowledgeCategory, includeInactiv
       accessCount: true,
       relevanceScore: true,
       isActive: true,
+      isPublic: true,
+      workspaceId: true,
+      createdBy: true,
       createdAt: true,
       updatedAt: true,
-      // Exclude embedding to reduce payload
     },
   });
 }
@@ -101,7 +168,7 @@ export async function listKnowledge(category?: KnowledgeCategory, includeInactiv
 /**
  * Update a knowledge document
  */
-export async function updateKnowledge(id: string, input: KnowledgeUpdateInput) {
+export async function updateKnowledge(id: string, input: KnowledgeUpdateInput & { isPublic?: boolean }) {
   // If content changed, regenerate embedding
   let embedding: number[] | undefined;
   if (input.title || input.description || input.tags || input.intents || input.rules || input.antiPatterns || input.implementationSteps) {
@@ -134,6 +201,7 @@ export async function updateKnowledge(id: string, input: KnowledgeUpdateInput) {
       ...(input.rules ? { rules: JSON.stringify(input.rules) } : {}),
       ...(input.examples ? { examples: JSON.stringify(input.examples) } : {}),
       ...(input.references ? { references: JSON.stringify(input.references) } : {}),
+      ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
       ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
       version: { increment: 1 },
     },
@@ -197,16 +265,26 @@ export async function rebuildEmbedding(id: string) {
 
 /**
  * Get knowledge statistics
+ * Optionally scoped to a workspace
  */
-export async function getKnowledgeStats(): Promise<KnowledgeStats> {
+export async function getKnowledgeStats(workspaceId?: string): Promise<KnowledgeStats> {
+  const knowledgeWhere: Record<string, unknown> = { isActive: true };
+  if (workspaceId) {
+    knowledgeWhere.OR = [
+      { workspaceId },
+      { isPublic: true },
+    ];
+    delete knowledgeWhere.workspaceId;
+  }
+
   const [totalDocuments, documents, topAccessed, recentIngestions, totalRetrievals] = await Promise.all([
-    db.knowledge.count({ where: { isActive: true } }),
+    db.knowledge.count({ where: knowledgeWhere }),
     db.knowledge.findMany({
-      where: { isActive: true },
+      where: knowledgeWhere,
       select: { category: true },
     }),
     db.knowledge.findMany({
-      where: { isActive: true },
+      where: knowledgeWhere,
       orderBy: { accessCount: 'desc' },
       take: 10,
       select: {

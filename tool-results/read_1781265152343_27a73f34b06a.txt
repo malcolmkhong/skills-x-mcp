@@ -1,0 +1,975 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import { useTheme } from 'next-themes'
+     5→import { toast } from 'sonner'
+     6→import {
+     7→  LayoutDashboard, Database, Search, Upload, Wrench, Sun, Moon,
+     8→  Plus, Pencil, Trash2, Eye, X, RefreshCw, FileText, BarChart3,
+     9→  Activity, Clock, CheckCircle2, Loader2, Zap, Brain, Shield,
+    10→  Server, Menu, ChevronDown, ChevronUp, Target, AlertTriangle,
+    11→  ListOrdered, BookOpen, Lightbulb, Link2, GitBranch
+    12→} from 'lucide-react'
+    13→
+    14→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+    15→import { Button } from '@/components/ui/button'
+    16→import { Input } from '@/components/ui/input'
+    17→import { Label } from '@/components/ui/label'
+    18→import { Badge } from '@/components/ui/badge'
+    19→import { Separator } from '@/components/ui/separator'
+    20→import { Skeleton } from '@/components/ui/skeleton'
+    21→import { Textarea } from '@/components/ui/textarea'
+    22→import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+    23→import {
+    24→  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    25→  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+    26→} from '@/components/ui/alert-dialog'
+    27→import {
+    28→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    29→} from '@/components/ui/select'
+    30→import {
+    31→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    32→} from '@/components/ui/table'
+    33→import {
+    34→  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
+    35→} from '@/components/ui/sheet'
+    36→import { ScrollArea } from '@/components/ui/scroll-area'
+    37→
+    38→// ─── Constants ────────────────────────────────────────────────────────────────
+    39→
+    40→const CATEGORIES = [
+    41→  'skills', 'sops', 'architecture', 'security', 'economy', 'deployment',
+    42→  'ui-standards', 'backend-standards', 'frontend-standards', 'game-economy',
+    43→  'trading', 'marketplace', 'anti-cheat', 'analytics', 'liveops', 'premium',
+    44→  'monetization', 'cloud-save', 'offline-sync',
+    45→] as const
+    46→
+    47→const CAT_COLORS: Record<string, string> = {
+    48→  'skills': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+    49→  'sops': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+    50→  'architecture': 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
+    51→  'security': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    52→  'economy': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
+    53→  'deployment': 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+    54→}
+    55→
+    56→const CAT_BAR: Record<string, string> = {
+    57→  'skills': '#10b981', 'sops': '#f59e0b', 'architecture': '#14b8a6',
+    58→  'security': '#ef4444', 'economy': '#06b6d4', 'deployment': '#f97316',
+    59→  'ui-standards': '#ec4899', 'backend-standards': '#14b8a6',
+    60→  'frontend-standards': '#84cc16', 'game-economy': '#eab308',
+    61→  'trading': '#d946ef', 'marketplace': '#f43f5e', 'anti-cheat': '#dc2626',
+    62→  'analytics': '#0ea5e9', 'liveops': '#8b5cf6', 'premium': '#d97706',
+    63→  'monetization': '#22c55e', 'cloud-save': '#0d9488', 'offline-sync': '#64748b',
+    64→}
+    65→
+    66→const MCP_TOOLS = [
+    67→  { name: 'search_knowledge', desc: 'Search all knowledge', params: ['query', 'limit?'] },
+    68→  { name: 'retrieve_knowledge', desc: 'Get document by slug', params: ['slug'] },
+    69→  { name: 'build_context', desc: 'Build AI context', params: ['query', 'maxDocuments?', 'maxTokenBudget?'] },
+    70→  { name: 'search_skills', desc: 'Search skills category', params: ['query', 'limit?'] },
+    71→  { name: 'search_sops', desc: 'Search SOPs category', params: ['query', 'limit?'] },
+    72→  { name: 'search_architecture', desc: 'Search architecture category', params: ['query', 'limit?'] },
+    73→  { name: 'search_security', desc: 'Search security category', params: ['query', 'limit?'] },
+    74→  { name: 'search_game_system', desc: 'Search game systems', params: ['query', 'limit?'] },
+    75→]
+    76→
+    77→const NAV = [
+    78→  { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+    79→  { id: 'knowledge' as const, label: 'Knowledge Base', icon: Database },
+    80→  { id: 'search' as const, label: 'Search & Retrieve', icon: Search },
+    81→  { id: 'ingest' as const, label: 'Ingest', icon: Upload },
+    82→  { id: 'mcp' as const, label: 'MCP Tools', icon: Wrench },
+    83→  { id: 'architecture' as const, label: 'Architecture', icon: GitBranch },
+    84→]
+    85→
+    86→type NavTab = typeof NAV[number]['id']
+    87→
+    88→// ─── Types ────────────────────────────────────────────────────────────────────
+    89→
+    90→interface KnowledgeDoc {
+    91→  id: string; slug: string; title: string; category: string
+    92→  description: string; tags: string[]; intents: string[]
+    93→  dependencies: string[]; antiPatterns: string[]
+    94→  implementationSteps: string[]; rules: string[]
+    95→  examples: Array<{ name: string; description: string }>
+    96→  references: string[]; version: number; schemaVersion: string
+    97→  accessCount: number; isActive: boolean; createdAt: string; updatedAt: string
+    98→}
+    99→
+   100→interface SearchResultItem {
+   101→  id: string; slug: string; title: string; category: string
+   102→  description: string; tags: string[]; intents: string[]
+   103→  score: number; embeddingScore: number; keywordScore: number
+   104→  categoryScore: number; intentScore: number; usageWeight: number
+   105→}
+   106→
+   107→interface Stats {
+   108→  totalDocuments: number; documentsByCategory: Record<string, number>; totalRetrievals: number
+   109→  topAccessed: Array<{ id: string; slug: string; title: string; category: string; accessCount: number }>
+   110→  recentIngestions: Array<{
+   111→    id: string; operation: string; category: string | null
+   112→    documentsProcessed: number; status: string; startedAt: string; completedAt: string | null
+   113→  }>
+   114→}
+   115→
+   116→interface ContextResult {
+   117→  context: string; documentsUsed: number; totalTokens: number
+   118→  sources: Array<{ slug: string; title: string; category: string; score: number }>
+   119→}
+   120→
+   121→// ─── Helpers ──────────────────────────────────────────────────────────────────
+   122→
+   123→const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+   124→
+   125→function CatBadge({ category }: { category: string }) {
+   126→  return <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-medium ${CAT_COLORS[category] || 'bg-gray-100 text-gray-800'}`}>{category}</Badge>
+   127→}
+   128→
+   129→async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+   130→  const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...options?.headers }, ...options })
+   131→  const data = await res.json()
+   132→  if (!res.ok) throw new Error(data.error || `API error ${res.status}`)
+   133→  return data
+   134→}
+   135→
+   136→// Section toggle helper
+   137→function Section({ title, icon: Icon, items, color }: { title: string; icon: React.ElementType; items: string[]; color: string }) {
+   138→  const [open, setOpen] = useState(false)
+   139→  if (!items.length) return null
+   140→  return (
+   141→    <div>
+   142→      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 text-xs font-medium w-full hover:bg-accent/50 rounded px-1 py-0.5 transition-colors">
+   143→        <Icon className={`h-3 w-3 ${color}`} /><span>{title}</span><span className="text-muted-foreground">({items.length})</span>
+   144→        {open ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+   145→      </button>
+   146→      {open && <ul className="mt-1 ml-5 space-y-0.5">{items.map((item, i) => <li key={i} className="text-[11px] text-muted-foreground leading-snug">&bull; {item}</li>)}</ul>}
+   147→    </div>
+   148→  )
+   149→}
+   150→
+   151→// ─── Main App ─────────────────────────────────────────────────────────────────
+   152→
+   153→export default function DashboardPage() {
+   154→  const [tab, setTab] = useState<NavTab>('overview')
+   155→  const [sidebarVisible, setSidebarVisible] = useState(true)
+   156→  const [mobileOpen, setMobileOpen] = useState(false)
+   157→  const { resolvedTheme, setTheme } = useTheme()
+   158→
+   159→  const toggleTheme = useCallback(() => {
+   160→    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+   161→  }, [resolvedTheme, setTheme])
+   162→
+   163→  return (
+   164→    <div className="min-h-screen flex flex-col bg-background">
+   165→      <div className="flex flex-1 overflow-hidden">
+   166→        {/* Desktop Sidebar - toggle show/hide */}
+   167→        {sidebarVisible && (
+   168→        <aside className="hidden md:flex flex-col border-r border-border bg-card w-56">
+   169→          <div className="p-3 border-b border-border">
+   170→            <div className="flex items-center gap-2">
+   171→              <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
+   172→                <Brain className="h-4 w-4 text-white" />
+   173→              </div>
+   174→              <div><div className="font-bold text-xs leading-tight">IndustryX</div><div className="text-[9px] text-muted-foreground">Knowledge MCP Provider</div></div>
+   175→            </div>
+   176→          </div>
+   177→          <nav className="flex-1 p-1.5 space-y-0.5">
+   178→            {NAV.map(item => {
+   179→              const Icon = item.icon; const active = tab === item.id
+   180→              return (
+   181→                <button key={item.id} onClick={() => setTab(item.id)}
+   182→                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${active ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground hover:bg-accent'}`}>
+   183→                  <Icon className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-emerald-500' : ''}`} />
+   184→                  <span>{item.label}</span>
+   185→                </button>
+   186→              )
+   187→            })}
+   188→          </nav>
+   189→          <div className="p-1.5 border-t border-border space-y-1">
+   190→            <Button variant="ghost" className="w-full h-7 text-xs justify-start" onClick={toggleTheme} suppressHydrationWarning>
+   191→              {resolvedTheme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+   192→              <span className="ml-1">{resolvedTheme === 'dark' ? 'Light' : 'Dark'}</span>
+   193→            </Button>
+   194→            <Button variant="ghost" className="w-full h-7 text-xs justify-start" onClick={() => setSidebarVisible(false)}>
+   195→              <ChevronUp className="h-3.5 w-3.5" /><span className="ml-1">Hide Sidebar</span>
+   196→            </Button>
+   197→          </div>
+   198→        </aside>
+   199→        )}
+   200→        {/* Show sidebar button when hidden */}
+   201→        {!sidebarVisible && (
+   202→        <div className="hidden md:flex flex-col items-center pt-3 px-1 border-r border-border bg-card">
+   203→          <Button variant="ghost" size="icon" className="h-7 w-7 mb-2" onClick={() => setSidebarVisible(true)}>
+   204→            <Menu className="h-4 w-4" />
+   205→          </Button>
+   206→          <div className="flex flex-col gap-1.5 py-2">
+   207→            {NAV.map(item => {
+   208→              const Icon = item.icon; const active = tab === item.id
+   209→              return (
+   210→                <button key={item.id} onClick={() => setTab(item.id)} title={item.label}
+   211→                  className={`p-1.5 rounded-md transition-colors ${active ? 'bg-emerald-500/10 text-emerald-600' : 'text-muted-foreground hover:bg-accent'}`}>
+   212→                  <Icon className={`h-3.5 w-3.5 ${active ? 'text-emerald-500' : ''}`} />
+   213→                </button>
+   214→              )
+   215→            })}
+   216→          </div>
+   217→        </div>
+   218→        )}
+   219→
+   220→        {/* Mobile Header */}
+   221→        <div className="md:hidden flex items-center gap-2 p-2 border-b border-border bg-card sticky top-0 z-10">
+   222→          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMobileOpen(true)}><Menu className="h-4 w-4" /></Button>
+   223→          <Brain className="h-4 w-4 text-emerald-600" />
+   224→          <span className="font-bold text-xs">IndustryX MCP</span>
+   225→        </div>
+   226→
+   227→        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+   228→          <SheetContent side="left" className="w-56 p-0">
+   229→            <SheetHeader className="p-3 border-b"><SheetTitle className="text-sm">Navigation</SheetTitle></SheetHeader>
+   230→            <nav className="p-2 space-y-1">
+   231→              {NAV.map(item => {
+   232→                const Icon = item.icon
+   233→                return <button key={item.id} onClick={() => { setTab(item.id); setMobileOpen(false) }}
+   234→                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent">
+   235→                  <Icon className="h-3.5 w-3.5" /><span>{item.label}</span>
+   236→                </button>
+   237→              })}
+   238→            </nav>
+   239→          </SheetContent>
+   240→        </Sheet>
+   241→
+   242→        {/* Main Content */}
+   243→        <main className="flex-1 overflow-y-auto">
+   244→          <div className="p-4 md:p-6 max-w-6xl mx-auto">
+   245→            {tab === 'overview' && <OverviewTab />}
+   246→            {tab === 'knowledge' && <KnowledgeTab />}
+   247→            {tab === 'search' && <SearchTab />}
+   248→            {tab === 'ingest' && <IngestTab />}
+   249→            {tab === 'mcp' && <MCPToolsTab />}
+   250→            {tab === 'architecture' && <ArchitectureTab />}
+   251→          </div>
+   252→        </main>
+   253→      </div>
+   254→
+   255→      <footer className="mt-auto border-t border-border bg-card px-4 py-2">
+   256→        <div className="max-w-6xl mx-auto flex items-center justify-between text-[10px] text-muted-foreground">
+   257→          <span>IndustryX Knowledge MCP Provider &copy; {new Date().getFullYear()}</span>
+   258→          <span className="flex items-center gap-1"><Server className="h-2.5 w-2.5" /> JSON-Native v1.0</span>
+   259→        </div>
+   260→      </footer>
+   261→    </div>
+   262→  )
+   263→}
+   264→
+   265→// ─── Overview Tab ─────────────────────────────────────────────────────────────
+   266→
+   267→function OverviewTab() {
+   268→  const [stats, setStats] = useState<Stats | null>(null)
+   269→  const [loading, setLoading] = useState(true)
+   270→
+   271→  const fetchStats = useCallback(async () => {
+   272→    setLoading(true)
+   273→    try { setStats(await apiFetch<Stats>('/api/knowledge/stats')) }
+   274→    catch { toast.error('Failed to load stats') }
+   275→    finally { setLoading(false) }
+   276→  }, [])
+   277→
+   278→  useEffect(() => { fetchStats() }, [fetchStats])
+   279→
+   280→  const chartData = stats ? Object.entries(stats.documentsByCategory).map(([name, count]) => ({ name, count, fill: CAT_BAR[name] || '#6b7280' })).sort((a, b) => b.count - a.count) : []
+   281→
+   282→  return (
+   283→    <div className="space-y-4">
+   284→      <div className="flex items-center justify-between">
+   285→        <div><h1 className="text-xl font-bold">Dashboard</h1><p className="text-muted-foreground text-xs">JSON-Native Knowledge System</p></div>
+   286→        <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}><RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />Refresh</Button>
+   287→      </div>
+   288→
+   289→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   290→        {[
+   291→          { title: 'Documents', value: stats?.totalDocuments ?? 0, icon: FileText, color: 'bg-emerald-500/10 text-emerald-600' },
+   292→          { title: 'Categories', value: stats ? Object.keys(stats.documentsByCategory).length : 0, icon: BarChart3, color: 'bg-teal-500/10 text-teal-600' },
+   293→          { title: 'Retrievals', value: stats?.totalRetrievals ?? 0, icon: Activity, color: 'bg-amber-500/10 text-amber-600' },
+   294→          { title: 'MCP Tools', value: 8, icon: Wrench, color: 'bg-cyan-500/10 text-cyan-600' },
+   295→        ].map(s=>(<Card key={s.title}><CardContent className="pt-4 pb-3 px-4"><div className="flex items-center justify-between">
+   296→          <div><p className="text-[10px] text-muted-foreground">{s.title}</p>{loading?<Skeleton className="h-6 w-10 mt-0.5"/>:<p className="text-lg font-bold">{s.value.toLocaleString()}</p>}</div>
+   297→          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${s.color}`}><s.icon className="h-4 w-4"/></div>
+   298→        </div></CardContent></Card>))}
+   299→      </div>
+   300→
+   301→      {/* Bar Chart */}
+   302→      <Card>
+   303→        <CardHeader className="pb-2"><CardTitle className="text-sm">Documents by Category</CardTitle></CardHeader>
+   304→        <CardContent>
+   305→          {loading ? <Skeleton className="h-40 w-full" /> : chartData.length === 0 ? <div className="h-40 flex items-center justify-center text-muted-foreground text-xs">No documents yet</div> : (
+   306→            <div className="space-y-1.5">
+   307→              {chartData.map(e => {
+   308→                const max = Math.max(...chartData.map(d => d.count), 1)
+   309→                return <div key={e.name} className="flex items-center gap-2">
+   310→                  <div className="w-24 text-[10px] text-muted-foreground truncate text-right">{e.name}</div>
+   311→                  <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${(e.count / max) * 100}%`, backgroundColor: e.fill }} /></div>
+   312→                  <div className="w-6 text-[10px] font-medium text-right">{e.count}</div>
+   313→                </div>
+   314→              })}
+   315→            </div>
+   316→          )}
+   317→        </CardContent>
+   318→      </Card>
+   319→
+   320→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+   321→        <Card>
+   322→          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><Zap className="h-3.5 w-3.5 text-amber-500" />Top Accessed</CardTitle></CardHeader>
+   323→          <CardContent>
+   324→            {loading ? <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}</div> : (
+   325→              <ScrollArea className="max-h-48">
+   326→                <div className="space-y-1">
+   327→                  {stats?.topAccessed.map(doc => (
+   328→                    <div key={doc.id} className="flex items-center justify-between p-1.5 rounded-md hover:bg-accent text-xs">
+   329→                      <div className="min-w-0 flex-1 mr-2"><div className="font-medium truncate">{doc.title}</div><div className="text-[10px] text-muted-foreground">{doc.slug}</div></div>
+   330→                      <div className="flex items-center gap-1.5 shrink-0"><CatBadge category={doc.category} /><Badge variant="secondary" className="text-[10px]">{doc.accessCount}</Badge></div>
+   331→                    </div>
+   332→                  ))}
+   333→                </div>
+   334→              </ScrollArea>
+   335→            )}
+   336→          </CardContent>
+   337→        </Card>
+   338→        <Card>
+   339→          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-teal-500" />Ingestion Logs</CardTitle></CardHeader>
+   340→          <CardContent>
+   341→            {loading ? <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}</div> : (
+   342→              <ScrollArea className="max-h-48">
+   343→                <div className="space-y-1">
+   344→                  {stats?.recentIngestions.map(ing => (
+   345→                    <div key={ing.id} className="flex items-center justify-between p-1.5 rounded-md hover:bg-accent text-xs">
+   346→                      <div><div className="font-medium">{ing.operation}</div><div className="text-[10px] text-muted-foreground">{ing.category || 'All'} &middot; {fmtDate(ing.startedAt)}</div></div>
+   347→                      <div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[10px]">{ing.documentsProcessed} docs</Badge>
+   348→                        {ing.status === 'completed' ? <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px]">Done</Badge> : <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px]">{ing.status}</Badge>}
+   349→                      </div>
+   350→                    </div>
+   351→                  ))}
+   352→                </div>
+   353→              </ScrollArea>
+   354→            )}
+   355→          </CardContent>
+   356→        </Card>
+   357→      </div>
+   358→    </div>
+   359→  )
+   360→}
+   361→
+   362→// ─── Knowledge Tab ────────────────────────────────────────────────────────────
+   363→
+   364→const EMPTY_DOC: Partial<KnowledgeDoc> = { title: '', slug: '', category: 'skills', description: '', tags: [], intents: [], dependencies: [], antiPatterns: [], implementationSteps: [], rules: [], examples: [], references: [], schemaVersion: '1.0.0' }
+   365→
+   366→function KnowledgeTab() {
+   367→  const [docs, setDocs] = useState<KnowledgeDoc[]>([])
+   368→  const [loading, setLoading] = useState(true)
+   369→  const [catFilter, setCatFilter] = useState('all')
+   370→  const [viewDoc, setViewDoc] = useState<KnowledgeDoc | null>(null)
+   371→  const [editDoc, setEditDoc] = useState<KnowledgeDoc | null>(null)
+   372→  const [isNew, setIsNew] = useState(false)
+   373→  const [deleteDoc, setDeleteDoc] = useState<KnowledgeDoc | null>(null)
+   374→  const [saving, setSaving] = useState(false)
+   375→
+   376→  // Form state
+   377→  const [form, setForm] = useState(EMPTY_DOC)
+   378→  const fetchDocs = useCallback(async () => {
+   379→    setLoading(true)
+   380→    try {
+   381→      const cat = catFilter !== 'all' ? catFilter : ''
+   382→      const data = await apiFetch<{ documents: KnowledgeDoc[] }>(`/api/knowledge${cat ? `?category=${cat}` : ''}`)
+   383→      setDocs(data.documents)
+   384→    } catch { toast.error('Failed to load documents') }
+   385→    finally { setLoading(false) }
+   386→  }, [catFilter])
+   387→
+   388→  useEffect(() => { fetchDocs() }, [fetchDocs])
+   389→
+   390→  const openEdit = (doc: KnowledgeDoc) => {
+   391→    setEditDoc(doc); setIsNew(false)
+   392→    setForm({ ...doc })
+   393→  }
+   394→
+   395→  const openNew = () => {
+   396→    setEditDoc({} as KnowledgeDoc); setIsNew(true)
+   397→    setForm({ ...EMPTY_DOC })
+   398→  }
+   399→
+   400→  const handleSave = async () => {
+   401→    setSaving(true)
+   402→    try {
+   403→      const body = {
+   404→        slug: form.slug, title: form.title, category: form.category, description: form.description || '',
+   405→        tags: form.tags || [], intents: form.intents || [], dependencies: form.dependencies || [],
+   406→        antiPatterns: form.antiPatterns || [], implementationSteps: form.implementationSteps || [],
+   407→        rules: form.rules || [], examples: form.examples || [], references: form.references || [],
+   408→        schemaVersion: form.schemaVersion || '1.0.0',
+   409→      }
+   410→      if (isNew) {
+   411→        await apiFetch('/api/knowledge', { method: 'POST', body: JSON.stringify(body) })
+   412→        toast.success('Created successfully')
+   413→      } else if (editDoc) {
+   414→        await apiFetch(`/api/knowledge/${editDoc.id}`, { method: 'PUT', body: JSON.stringify(body) })
+   415→        toast.success('Updated successfully')
+   416→      }
+   417→      setEditDoc(null); fetchDocs()
+   418→    } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed') }
+   419→    finally { setSaving(false) }
+   420→  }
+   421→
+   422→  const handleDelete = async () => {
+   423→    if (!deleteDoc) return
+   424→    try { await fetch(`/api/knowledge/${deleteDoc.id}`, { method: 'DELETE' }); toast.success('Deleted'); fetchDocs() }
+   425→    catch { toast.error('Delete failed') }
+   426→    setDeleteDoc(null)
+   427→  }
+   428→
+   429→  // Form helpers for array fields
+   430→  const setArrField = (field: keyof KnowledgeDoc, val: string, sep: 'comma' | 'line') => {
+   431→    const arr = sep === 'comma' ? val.split(',').map(s => s.trim()).filter(Boolean) : val.split('\n').map(s => s.trim()).filter(Boolean)
+   432→    setForm(prev => ({ ...prev, [field]: arr }))
+   433→  }
+   434→
+   435→  const arrToStr = (arr: string[] | undefined, sep: 'comma' | 'line') => (arr || []).join(sep === 'comma' ? ', ' : '\n')
+   436→
+   437→  return (
+   438→    <div className="space-y-4">
+   439→      <div className="flex items-center justify-between flex-wrap gap-2">
+   440→        <div><h1 className="text-xl font-bold">Knowledge Base</h1><p className="text-muted-foreground text-xs">{docs.length} JSON knowledge units</p></div>
+   441→        <div className="flex items-center gap-2">
+   442→          <Select value={catFilter} onValueChange={setCatFilter}>
+   443→            <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
+   444→            <SelectContent>
+   445→              <SelectItem value="all">All Categories</SelectItem>
+   446→              {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+   447→            </SelectContent>
+   448→          </Select>
+   449→          <Button size="sm" onClick={openNew}><Plus className="h-3 w-3 mr-1" />New</Button>
+   450→          <Button variant="outline" size="sm" onClick={fetchDocs}><RefreshCw className="h-3 w-3 mr-1" />Refresh</Button>
+   451→        </div>
+   452→      </div>
+   453→
+   454→      {loading ? <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div> : (
+   455→        <Card><CardContent className="p-0"><div className="overflow-x-auto"><Table>
+   456→          <TableHeader><TableRow>
+   457→            <TableHead className="text-xs">Title</TableHead><TableHead className="text-xs">Category</TableHead>
+   458→            <TableHead className="text-xs hidden md:table-cell">Tags</TableHead>
+   459→            <TableHead className="text-xs hidden lg:table-cell">Intents</TableHead>
+   460→            <TableHead className="text-xs hidden lg:table-cell">Rules</TableHead>
+   461→            <TableHead className="text-xs hidden sm:table-cell">Version</TableHead>
+   462→            <TableHead className="text-xs hidden sm:table-cell">Active</TableHead>
+   463→            <TableHead className="text-xs">Actions</TableHead>
+   464→          </TableRow></TableHeader>
+   465→          <TableBody>{docs.map(doc => (
+   466→            <TableRow key={doc.id}>
+   467→              <TableCell className="text-xs"><div className="font-medium max-w-[160px] truncate">{doc.title}</div><div className="text-[10px] text-muted-foreground">{doc.slug}</div></TableCell>
+   468→              <TableCell><CatBadge category={doc.category} /></TableCell>
+   469→              <TableCell className="text-xs hidden md:table-cell"><div className="flex flex-wrap gap-0.5 max-w-[120px]">{(doc.tags||[]).slice(0,2).map((t,i)=><Badge key={i} variant="secondary" className="text-[9px] px-1 py-0">{t}</Badge>)}{(doc.tags||[]).length>2&&<span className="text-[9px] text-muted-foreground">+{doc.tags.length-2}</span>}</div></TableCell>
+   470→              <TableCell className="text-xs hidden lg:table-cell">{(doc.intents||[]).length}</TableCell>
+   471→              <TableCell className="text-xs hidden lg:table-cell">{(doc.rules||[]).length}</TableCell>
+   472→              <TableCell className="text-xs hidden sm:table-cell">v{doc.schemaVersion||doc.version}</TableCell>
+   473→              <TableCell className="hidden sm:table-cell">{doc.isActive?<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500"/>:<X className="h-3.5 w-3.5 text-muted-foreground"/>}</TableCell>
+   474→              <TableCell><div className="flex gap-0.5">
+   475→                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>setViewDoc(doc)}><Eye className="h-3 w-3"/></Button>
+   476→                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>openEdit(doc)}><Pencil className="h-3 w-3"/></Button>
+   477→                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>setDeleteDoc(doc)}><Trash2 className="h-3 w-3 text-destructive"/></Button>
+   478→              </div></TableCell>
+   479→            </TableRow>
+   480→          ))}</TableBody>
+   481→        </Table></div></CardContent></Card>
+   482→      )}
+   483→
+   484→      {/* View Document */}
+   485→      <Sheet open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
+   486→        <SheetContent className="w-full md:w-[520px] overflow-y-auto">
+   487→          <SheetHeader><SheetTitle className="text-sm">{viewDoc?.title}</SheetTitle><SheetDescription className="text-xs">{viewDoc?.category} &middot; {viewDoc?.slug} &middot; v{viewDoc?.schemaVersion}</SheetDescription></SheetHeader>
+   488→          {viewDoc && (
+   489→            <div className="mt-4 space-y-3">
+   490→              <p className="text-xs text-muted-foreground">{viewDoc.description}</p>
+   491→              {(viewDoc.tags || []).length > 0 && <div className="flex flex-wrap gap-1">{viewDoc.tags.map((t, i) => <Badge key={i} variant="secondary" className="text-[10px]">{t}</Badge>)}</div>}
+   492→              <Separator />
+   493→              <Section title="Rules" icon={Shield} items={viewDoc.rules || []} color="text-emerald-500" />
+   494→              <Section title="Implementation Steps" icon={ListOrdered} items={viewDoc.implementationSteps || []} color="text-teal-500" />
+   495→              <Section title="Anti-Patterns" icon={AlertTriangle} items={viewDoc.antiPatterns || []} color="text-red-500" />
+   496→              <Section title="Dependencies" icon={Link2} items={viewDoc.dependencies || []} color="text-amber-500" />
+   497→              <Section title="Intents" icon={Target} items={viewDoc.intents || []} color="text-cyan-500" />
+   498→              <Section title="References" icon={BookOpen} items={viewDoc.references || []} color="text-purple-500" />
+   499→              {(viewDoc.examples||[]).length>0&&<div>
+   500→                <div className="flex items-center gap-1.5 text-xs font-medium"><Lightbulb className="h-3 w-3 text-amber-500"/>Examples ({viewDoc.examples.length})</div>
+   501→                <div className="mt-1 ml-5 space-y-1.5">{viewDoc.examples.map((ex,i)=><div key={i} className="bg-muted/40 rounded p-2"><div className="text-[11px] font-medium">{ex.name}</div><div className="text-[10px] text-muted-foreground">{ex.description}</div></div>)}</div>
+   502→              </div>}
+   503→            </div>
+   504→          )}
+   505→        </SheetContent>
+   506→      </Sheet>
+   507→
+   508→      {/* Create/Edit Dialog */}
+   509→      <Dialog open={!!editDoc} onOpenChange={() => setEditDoc(null)}>
+   510→        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+   511→          <DialogHeader><DialogTitle className="text-sm">{isNew ? 'Create' : 'Edit'} Knowledge Unit</DialogTitle></DialogHeader>
+   512→          <div className="space-y-3">
+   513→            <div className="grid grid-cols-2 gap-3">
+   514→              <div><Label className="text-xs">Slug</Label><Input className="text-xs h-8 mt-1" value={form.slug||''} onChange={e=>setForm(p=>({...p,slug:e.target.value}))} placeholder="my-knowledge" disabled={!isNew}/></div>
+   515→              <div><Label className="text-xs">Category</Label><Select value={form.category||'skills'} onValueChange={v=>setForm(p=>({...p,category:v}))}><SelectTrigger className="h-8 text-xs mt-1"><SelectValue/></SelectTrigger><SelectContent>{CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+   516→            </div>
+   517→            <div><Label className="text-xs">Title</Label><Input className="text-xs h-8 mt-1" value={form.title||''} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div>
+   518→            <div><Label className="text-xs">Description</Label><Textarea className="text-xs mt-1 min-h-[60px]" value={form.description||''} onChange={e=>setForm(p=>({...p,description:e.target.value}))}/></div>
+   519→            <div><Label className="text-xs">Tags (comma-separated)</Label><Input className="text-xs h-8 mt-1" value={arrToStr(form.tags,'comma')} onChange={e=>setArrField('tags',e.target.value,'comma')} placeholder="tag1, tag2"/></div>
+   520→            <div><Label className="text-xs">Intents (one per line)</Label><Textarea className="text-xs mt-1 min-h-[50px]" value={arrToStr(form.intents,'line')} onChange={e=>setArrField('intents',e.target.value,'line')}/></div>
+   521→            <div><Label className="text-xs">Dependencies (comma-separated)</Label><Input className="text-xs h-8 mt-1" value={arrToStr(form.dependencies,'comma')} onChange={e=>setArrField('dependencies',e.target.value,'comma')}/></div>
+   522→            <div><Label className="text-xs">Anti-Patterns (one per line)</Label><Textarea className="text-xs mt-1 min-h-[50px]" value={arrToStr(form.antiPatterns,'line')} onChange={e=>setArrField('antiPatterns',e.target.value,'line')}/></div>
+   523→            <div><Label className="text-xs">Impl Steps (one per line)</Label><Textarea className="text-xs mt-1 min-h-[50px]" value={arrToStr(form.implementationSteps,'line')} onChange={e=>setArrField('implementationSteps',e.target.value,'line')}/></div>
+   524→            <div><Label className="text-xs">Rules (one per line)</Label><Textarea className="text-xs mt-1 min-h-[50px]" value={arrToStr(form.rules,'line')} onChange={e=>setArrField('rules',e.target.value,'line')}/></div>
+   525→            <div><Label className="text-xs">References (comma-separated)</Label><Input className="text-xs h-8 mt-1" value={arrToStr(form.references,'comma')} onChange={e=>setArrField('references',e.target.value,'comma')}/></div>
+   526→            <div><Label className="text-xs">Schema Version</Label><Input className="text-xs h-8 mt-1 w-24" value={form.schemaVersion||'1.0.0'} onChange={e=>setForm(p=>({...p,schemaVersion:e.target.value}))}/></div>
+   527→          </div>
+   528→          <DialogFooter>
+   529→            <Button variant="outline" size="sm" className="text-xs" onClick={()=>setEditDoc(null)}>Cancel</Button>
+   530→            <Button size="sm" className="text-xs" onClick={handleSave} disabled={saving}>{saving&&<Loader2 className="h-3 w-3 animate-spin mr-1"/>}{isNew?'Create':'Save'}</Button>
+   531→          </DialogFooter>
+   532→        </DialogContent>
+   533→      </Dialog>
+   534→
+   535→      {/* Delete Confirmation */}
+   536→      <AlertDialog open={!!deleteDoc} onOpenChange={() => setDeleteDoc(null)}>
+   537→        <AlertDialogContent>
+   538→          <AlertDialogHeader><AlertDialogTitle className="text-sm">Delete &ldquo;{deleteDoc?.title}&rdquo;?</AlertDialogTitle>
+   539→            <AlertDialogDescription className="text-xs">This will soft-delete the document.</AlertDialogDescription>
+   540→          </AlertDialogHeader>
+   541→          <AlertDialogFooter>
+   542→            <AlertDialogCancel className="text-xs">Cancel</AlertDialogCancel>
+   543→            <AlertDialogAction className="text-xs" onClick={handleDelete}>Delete</AlertDialogAction>
+   544→          </AlertDialogFooter>
+   545→        </AlertDialogContent>
+   546→      </AlertDialog>
+   547→    </div>
+   548→  )
+   549→}
+   550→
+   551→// ─── Search Tab ───────────────────────────────────────────────────────────────
+   552→
+   553→function SearchTab() {
+   554→  const [query, setQuery] = useState('')
+   555→  const [results, setResults] = useState<SearchResultItem[]>([])
+   556→  const [searching, setSearching] = useState(false)
+   557→  const [ctxResult, setCtxResult] = useState<ContextResult | null>(null)
+   558→  const [similarId, setSimilarId] = useState('')
+   559→  const [similarResults, setSimilarResults] = useState<SearchResultItem[]>([])
+   560→
+   561→  const doSearch = async () => {
+   562→    if (!query.trim()) return
+   563→    setSearching(true); setCtxResult(null)
+   564→    try {
+   565→      const data = await apiFetch<{ results: SearchResultItem[] }>('/api/knowledge/search', {
+   566→        method: 'POST', body: JSON.stringify({ query, limit: 5 }),
+   567→      })
+   568→      setResults(data.results)
+   569→    } catch { toast.error('Search failed') }
+   570→    finally { setSearching(false) }
+   571→  }
+   572→
+   573→  const doContext = async () => {
+   574→    if (!query.trim()) return
+   575→    setSearching(true)
+   576→    try {
+   577→      const data = await apiFetch<ContextResult>('/api/knowledge/context', {
+   578→        method: 'POST', body: JSON.stringify({ query, maxDocuments: 5, maxTokenBudget: 5000 }),
+   579→      })
+   580→      setCtxResult(data)
+   581→    } catch { toast.error('Context build failed') }
+   582→    finally { setSearching(false) }
+   583→  }
+   584→
+   585→  const doSimilar = async () => {
+   586→    if (!similarId.trim()) return
+   587→    setSearching(true)
+   588→    try {
+   589→      const data = await apiFetch<{ results: SearchResultItem[] }>(`/api/knowledge/similar?id=${similarId}&limit=5`)
+   590→      setSimilarResults(data.results)
+   591→    } catch { toast.error('Similar search failed') }
+   592→    finally { setSearching(false) }
+   593→  }
+   594→
+   595→  return (
+   596→    <div className="space-y-4">
+   597→      <div><h1 className="text-xl font-bold">Search & Retrieve</h1><p className="text-muted-foreground text-xs">Hybrid retrieval with score breakdown</p></div>
+   598→
+   599→      <Card>
+   600→        <CardContent className="pt-4 space-y-3">
+   601→          <div className="flex gap-2">
+   602→            <Input placeholder="Search knowledge..." value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && doSearch()} className="text-xs h-8" />
+   603→            <Button size="sm" onClick={doSearch} disabled={searching}>{searching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}Search</Button>
+   604→            <Button size="sm" variant="outline" onClick={doContext} disabled={searching}><Brain className="h-3 w-3 mr-1" />Context</Button>
+   605→          </div>
+   606→        </CardContent>
+   607→      </Card>
+   608→
+   609→      {results.length > 0 && (
+   610→        <div className="space-y-2">
+   611→          <h3 className="text-sm font-medium">Search Results</h3>
+   612→          {results.map(r => (
+   613→            <Card key={r.id} className="border-l-4" style={{ borderLeftColor: CAT_BAR[r.category] || '#6b7280' }}>
+   614→              <CardContent className="py-2.5 px-3 space-y-1.5">
+   615→                <div className="flex items-start justify-between gap-2">
+   616→                  <div><div className="text-xs font-medium">{r.title}</div><div className="text-[10px] text-muted-foreground line-clamp-2">{r.description}</div></div>
+   617→                  <div className="flex items-center gap-1 shrink-0"><CatBadge category={r.category} /><Badge variant="secondary" className="text-[10px]">{r.score.toFixed(3)}</Badge></div>
+   618→                </div>
+   619→                {/* Score breakdown */}
+   620→                <div className="grid grid-cols-5 gap-1 text-[9px]">
+   621→                  {[{label:'Embed',val:r.embeddingScore,color:'bg-emerald-500'},{label:'Keyword',val:r.keywordScore,color:'bg-teal-500'},{label:'Category',val:r.categoryScore,color:'bg-amber-500'},{label:'Intent',val:r.intentScore,color:'bg-cyan-500'},{label:'Usage',val:r.usageWeight,color:'bg-slate-500'}].map(s=>(
+   622→                    <div key={s.label} className="text-center">
+   623→                      <div className="h-1 rounded-full bg-muted overflow-hidden mb-0.5"><div className={`h-full rounded-full ${s.color}`} style={{width:`${Math.min(s.val*100,100)}%`}}/></div>
+   624→                      <div className="text-muted-foreground">{s.label}</div><div className="font-medium">{s.val.toFixed(2)}</div>
+   625→                    </div>
+   626→                  ))}
+   627→                </div>
+   628→                {(r.tags || []).length > 0 && <div className="flex flex-wrap gap-0.5">{r.tags.slice(0, 4).map((t, i) => <Badge key={i} variant="secondary" className="text-[9px] px-1 py-0">{t}</Badge>)}</div>}
+   629→              </CardContent>
+   630→            </Card>
+   631→          ))}
+   632→        </div>
+   633→      )}
+   634→
+   635→      {ctxResult && (
+   636→        <Card>
+   637→          <CardHeader className="pb-2">
+   638→            <CardTitle className="text-sm">Assembled Context</CardTitle>
+   639→            <CardDescription className="text-[10px]">{ctxResult.documentsUsed} docs &middot; ~{ctxResult.totalTokens} tokens</CardDescription>
+   640→          </CardHeader>
+   641→          <CardContent>
+   642→            {ctxResult.sources.length > 0 && <div className="flex flex-wrap gap-1 mb-2">{ctxResult.sources.map((s, i) => <Badge key={i} variant="outline" className="text-[9px]">{s.title} ({s.score.toFixed(2)})</Badge>)}</div>}
+   643→            <ScrollArea className="h-64"><pre className="text-[10px] whitespace-pre-wrap font-mono bg-muted/30 p-3 rounded-lg">{ctxResult.context}</pre></ScrollArea>
+   644→          </CardContent>
+   645→        </Card>
+   646→      )}
+   647→
+   648→      {/* Similar docs finder */}
+   649→      <Card>
+   650→        <CardHeader className="pb-2"><CardTitle className="text-sm">Find Similar Documents</CardTitle><CardDescription className="text-[10px]">Enter a document ID to find similar knowledge units</CardDescription></CardHeader>
+   651→        <CardContent>
+   652→          <div className="flex gap-2">
+   653→            <Input placeholder="Document ID..." value={similarId} onChange={e => setSimilarId(e.target.value)} className="text-xs h-8" />
+   654→            <Button size="sm" variant="outline" onClick={doSimilar} disabled={searching}>{searching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}Find</Button>
+   655→          </div>
+   656→          {similarResults.length > 0 && (
+   657→            <div className="mt-2 space-y-1">
+   658→              {similarResults.map(r => (
+   659→                <div key={r.id} className="flex items-center justify-between p-1.5 rounded-md hover:bg-accent text-xs">
+   660→                  <div className="min-w-0 flex-1"><div className="font-medium truncate">{r.title}</div><div className="text-[10px] text-muted-foreground">{r.category}</div></div>
+   661→                  <Badge variant="secondary" className="text-[10px] shrink-0">{r.score.toFixed(3)}</Badge>
+   662→                </div>
+   663→              ))}
+   664→            </div>
+   665→          )}
+   666→        </CardContent>
+   667→      </Card>
+   668→    </div>
+   669→  )
+   670→}
+   671→
+   672→// ─── Ingest Tab ───────────────────────────────────────────────────────────────
+   673→
+   674→function IngestTab() {
+   675→  const [ingesting, setIngesting] = useState(false)
+   676→  const [result, setResult] = useState<{ totalProcessed: number; created: number; updated: number; skipped: number } | null>(null)
+   677→  const [rebuilding, setRebuilding] = useState(false)
+   678→
+   679→  const doIngest = async (category?: string) => {
+   680→    setIngesting(true)
+   681→    try {
+   682→      const data = await apiFetch<{ totalProcessed: number; created: number; updated: number; skipped: number }>('/api/knowledge/ingest', {
+   683→        method: 'POST', body: JSON.stringify({ category: category || undefined }),
+   684→      })
+   685→      setResult(data); toast.success(`Ingested ${data.totalProcessed} docs`)
+   686→    } catch { toast.error('Ingestion failed') }
+   687→    finally { setIngesting(false) }
+   688→  }
+   689→
+   690→  const doRebuild = async () => {
+   691→    setRebuilding(true)
+   692→    try {
+   693→      const data = await apiFetch<{ count: number }>('/api/knowledge/rebuild', { method: 'POST' })
+   694→      toast.success(`Rebuilt ${data.count} embeddings`)
+   695→    } catch { toast.error('Rebuild failed') }
+   696→    finally { setRebuilding(false) }
+   697→  }
+   698→
+   699→  return (
+   700→    <div className="space-y-4">
+   701→      <div><h1 className="text-xl font-bold">Knowledge Ingestion</h1><p className="text-muted-foreground text-xs">Ingest JSON knowledge files and rebuild embeddings</p></div>
+   702→
+   703→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   704→        <Card>
+   705→          <CardHeader className="pb-2"><CardTitle className="text-sm">Full Reindex</CardTitle><CardDescription className="text-[10px]">Scan all JSON knowledge directories</CardDescription></CardHeader>
+   706→          <CardContent><Button size="sm" onClick={() => doIngest()} disabled={ingesting}>{ingesting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}Ingest All</Button></CardContent>
+   707→        </Card>
+   708→        <Card>
+   709→          <CardHeader className="pb-2"><CardTitle className="text-sm">Rebuild Embeddings</CardTitle><CardDescription className="text-[10px]">Regenerate all vector embeddings</CardDescription></CardHeader>
+   710→          <CardContent><Button size="sm" variant="outline" onClick={doRebuild} disabled={rebuilding}>{rebuilding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}Rebuild</Button></CardContent>
+   711→        </Card>
+   712→      </div>
+   713→
+   714→      <Card>
+   715→        <CardHeader className="pb-2"><CardTitle className="text-sm">Category Ingestion</CardTitle></CardHeader>
+   716→        <CardContent className="flex flex-wrap gap-2">
+   717→          {CATEGORIES.map(c => <Button key={c} variant="outline" size="sm" className="text-[10px] h-6" onClick={() => doIngest(c)} disabled={ingesting}>{c}</Button>)}
+   718→        </CardContent>
+   719→      </Card>
+   720→
+   721→      {result && (
+   722→        <Card>
+   723→          <CardHeader className="pb-2"><CardTitle className="text-sm">Last Ingestion Result</CardTitle></CardHeader>
+   724→          <CardContent>
+   725→            <div className="grid grid-cols-4 gap-2 text-center">
+   726→              {[
+   727→                { label: 'Processed', value: result.totalProcessed, color: 'text-foreground' },
+   728→                { label: 'Created', value: result.created, color: 'text-emerald-600' },
+   729→                { label: 'Updated', value: result.updated, color: 'text-amber-600' },
+   730→                { label: 'Skipped', value: result.skipped, color: 'text-muted-foreground' },
+   731→              ].map(s => <div key={s.label}><div className={`text-lg font-bold ${s.color}`}>{s.value}</div><div className="text-[10px] text-muted-foreground">{s.label}</div></div>)}
+   732→            </div>
+   733→          </CardContent>
+   734→        </Card>
+   735→      )}
+   736→    </div>
+   737→  )
+   738→}
+   739→
+   740→// ─── MCP Tools Tab ────────────────────────────────────────────────────────────
+   741→
+   742→function MCPToolsTab() {
+   743→  const [tool, setTool] = useState(MCP_TOOLS[0])
+   744→  const [queryInput, setQueryInput] = useState('')
+   745→  const [slugInput, setSlugInput] = useState('')
+   746→  const [limitInput, setLimitInput] = useState('5')
+   747→  const [executing, setExecuting] = useState(false)
+   748→  const [result, setResult] = useState('')
+   749→
+   750→  const execute = async () => {
+   751→    setExecuting(true); setResult('')
+   752→    try {
+   753→      let body: Record<string, unknown>
+   754→      if (tool.name === 'retrieve_knowledge') {
+   755→        body = { slug: slugInput }
+   756→      } else {
+   757→        body = { query: queryInput, limit: parseInt(limitInput) || 5 }
+   758→        if (tool.name === 'build_context') body = { query: queryInput, maxDocuments: parseInt(limitInput) || 5, maxTokenBudget: 5000 }
+   759→        if (tool.name === 'search_skills') body = { ...body, category: 'skills' }
+   760→        if (tool.name === 'search_sops') body = { ...body, category: 'sops' }
+   761→        if (tool.name === 'search_architecture') body = { ...body, category: 'architecture' }
+   762→        if (tool.name === 'search_security') body = { ...body, category: 'security' }
+   763→        if (tool.name === 'search_game_system') body = { ...body, category: 'game-economy' }
+   764→      }
+   765→
+   766→      let endpoint = '/api/knowledge/search'
+   767→      const method = 'POST'
+   768→      if (tool.name === 'retrieve_knowledge') endpoint = `/api/knowledge/${slugInput}`
+   769→      if (tool.name === 'build_context') endpoint = '/api/knowledge/context'
+   770→
+   771→      const data = await apiFetch<unknown>(endpoint, {
+   772→        method: tool.name === 'retrieve_knowledge' ? 'GET' : 'POST',
+   773→        body: tool.name === 'retrieve_knowledge' ? undefined : JSON.stringify(body),
+   774→      })
+   775→      setResult(JSON.stringify(data, null, 2))
+   776→      toast.success('Tool executed successfully')
+   777→    } catch (e) { setResult(`Error: ${e instanceof Error ? e.message : 'Unknown'}`); toast.error('Execution failed') }
+   778→    finally { setExecuting(false) }
+   779→  }
+   780→
+   781→  return (
+   782→    <div className="space-y-4">
+   783→      <div><h1 className="text-xl font-bold">MCP Tools</h1><p className="text-muted-foreground text-xs">Test MCP tool calls that AI agents would use</p></div>
+   784→
+   785→      <Card>
+   786→        <CardHeader className="pb-2">
+   787→          <CardTitle className="text-sm">Select Tool</CardTitle>
+   788→          <div className="flex flex-wrap gap-1.5 mt-2">
+   789→            {MCP_TOOLS.map(t => (
+   790→              <Button key={t.name} variant={tool.name === t.name ? 'default' : 'outline'} size="sm" className="text-[10px] h-6"
+   791→                onClick={() => setTool(t)}>{t.name}</Button>
+   792→            ))}
+   793→          </div>
+   794→        </CardHeader>
+   795→        <CardContent className="space-y-3">
+   796→          <p className="text-xs text-muted-foreground">{tool.desc} &mdash; params: {tool.params.join(', ')}</p>
+   797→
+   798→          {tool.name !== 'retrieve_knowledge' && (
+   799→            <div><Label className="text-xs">Query</Label><Input placeholder="Enter search query..." value={queryInput} onChange={e => setQueryInput(e.target.value)} className="text-xs h-8 mt-1" /></div>
+   800→          )}
+   801→          {tool.name === 'retrieve_knowledge' && (
+   802→            <div><Label className="text-xs">Slug</Label><Input placeholder="e.g., cloud-save" value={slugInput} onChange={e => setSlugInput(e.target.value)} className="text-xs h-8 mt-1" /></div>
+   803→          )}
+   804→          <div><Label className="text-xs">Limit</Label><Input type="number" value={limitInput} onChange={e => setLimitInput(e.target.value)} className="text-xs h-8 mt-1 w-20" /></div>
+   805→
+   806→          <Button size="sm" onClick={execute} disabled={executing}>
+   807→            {executing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}Execute {tool.name}
+   808→          </Button>
+   809→        </CardContent>
+   810→      </Card>
+   811→
+   812→      {result && (
+   813→        <Card>
+   814→          <CardHeader className="pb-2"><CardTitle className="text-sm">Result</CardTitle></CardHeader>
+   815→          <CardContent>
+   816→            <ScrollArea className="h-72"><pre className="text-[10px] whitespace-pre-wrap font-mono">{result}</pre></ScrollArea>
+   817→          </CardContent>
+   818→        </Card>
+   819→      )}
+   820→    </div>
+   821→  )
+   822→}
+   823→
+   824→// ─── Architecture Tab ────────────────────────────────────────────────────────
+   825→
+   826→const LAYERS = [
+   827→  { num: 1, title: 'AI Agents', desc: 'Claude Code, Cursor, Codex, custom agents connect via SSE to consume knowledge', color: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700', titleColor: 'text-slate-700 dark:text-slate-300' },
+   828→  { num: 2, title: 'MCP Protocol', desc: 'JSON-RPC 2.0 over SSE transport — initialize → tools/list → tools/call → ping', color: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800', titleColor: 'text-blue-700 dark:text-blue-300' },
+   829→  { num: 3, title: 'MCP Server', desc: '8 tools on port 3002 — search_knowledge, retrieve_knowledge, build_context, + 5 category tools', color: 'bg-emerald-50 dark:bg-emerald-950 border-emerald-200 dark:border-emerald-800', titleColor: 'text-emerald-700 dark:text-emerald-300' },
+   830→  { num: 4, title: 'REST API', desc: 'Next.js 16 App Router on port 3000 — 12 endpoints (CRUD + search + context + ingest + stats)', color: 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800', titleColor: 'text-amber-700 dark:text-amber-300' },
+   831→  { num: 5, title: 'Knowledge Engine', desc: 'Hybrid Search (embedding 0.50 + keyword 0.25 + category 0.15 + usage 0.10), Context Builder, Embeddings (512-dim), Ingestion Pipeline', color: 'bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800', titleColor: 'text-purple-700 dark:text-purple-300' },
+   832→  { num: 6, title: 'Data Layer', desc: 'SQLite + Prisma ORM — 3 models (Knowledge, IngestionLog, RetrievalStat), 11 docs across 6 categories', color: 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700', titleColor: 'text-gray-700 dark:text-gray-300' },
+   833→]
+   834→
+   835→function ArchitectureTab() {
+   836→  return (
+   837→    <div className="space-y-5">
+   838→      <div>
+   839→        <h1 className="text-xl font-bold flex items-center gap-2"><GitBranch className="h-5 w-5 text-emerald-600" />Architecture Flow</h1>
+   840→        <p className="text-muted-foreground text-xs mt-1">IndustryX Knowledge MCP Server — Full 6-Layer Architecture · Skills Provider · SSE Transport</p>
+   841→      </div>
+   842→
+   843→      {/* Diagram */}
+   844→      <Card>
+   845→        <CardContent className="p-4">
+   846→          <img
+   847→            src="/architecture-flow.png"
+   848→            alt="IndustryX Knowledge MCP Server Architecture Flow Diagram"
+   849→            className="w-full rounded-lg border border-border shadow-sm"
+   850→          />
+   851→        </CardContent>
+   852→      </Card>
+   853→
+   854→      {/* Layer breakdown */}
+   855→      <div className="space-y-3">
+   856→        <h2 className="text-sm font-semibold">Layer Breakdown</h2>
+   857→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+   858→          {LAYERS.map(layer => (
+   859→            <Card key={layer.num} className={`${layer.color} border`}>
+   860→              <CardContent className="pt-4 pb-3 px-4">
+   861→                <div className="flex items-center gap-2 mb-2">
+   862→                  <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold bg-white dark:bg-black/30 ${layer.titleColor}`}>{layer.num}</div>
+   863→                  <div className={`text-sm font-bold ${layer.titleColor}`}>{layer.title}</div>
+   864→                </div>
+   865→                <p className="text-[11px] text-muted-foreground leading-relaxed">{layer.desc}</p>
+   866→              </CardContent>
+   867→            </Card>
+   868→          ))}
+   869→        </div>
+   870→      </div>
+   871→
+   872→      {/* Connection details */}
+   873→      <Card>
+   874→        <CardHeader className="pb-2">
+   875→          <CardTitle className="text-sm flex items-center gap-2"><Server className="h-3.5 w-3.5 text-emerald-500" />SSE Connection Details</CardTitle>
+   876→        </CardHeader>
+   877→        <CardContent>
+   878→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+   879→            <div className="space-y-2">
+   880→              <div><span className="font-medium">Transport:</span> <span className="text-muted-foreground">SSE (Server-Sent Events)</span></div>
+   881→              <div><span className="font-medium">SSE Endpoint:</span> <code className="bg-muted px-1.5 py-0.5 rounded text-[11px]">GET /sse</code></div>
+   882→              <div><span className="font-medium">Messages:</span> <code className="bg-muted px-1.5 py-0.5 rounded text-[11px]">POST /messages?sessionId=X</code></div>
+   883→              <div><span className="font-medium">Protocol:</span> <span className="text-muted-foreground">JSON-RPC 2.0</span></div>
+   884→            </div>
+   885→            <div className="space-y-2">
+   886→              <div><span className="font-medium">Protocol Version:</span> <code className="bg-muted px-1.5 py-0.5 rounded text-[11px]">2024-11-05</code></div>
+   887→              <div><span className="font-medium">Keepalive:</span> <span className="text-muted-foreground">Every 15 seconds</span></div>
+   888→              <div><span className="font-medium">Response Format:</span> <code className="bg-muted px-1.5 py-0.5 rounded text-[11px]">{`{content: [{type:"text", text:"..."}]}`}</code></div>
+   889→              <div><span className="font-medium">Auth:</span> <span className="text-muted-foreground">None (future: OAuth 2.1)</span></div>
+   890→            </div>
+   891→          </div>
+   892→        </CardContent>
+   893→      </Card>
+   894→
+   895→      {/* Example flow */}
+   896→      <Card>
+   897→        <CardHeader className="pb-2">
+   898→          <CardTitle className="text-sm flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-amber-500" />Example: AI Agent Asks &quot;How do I implement cloud save?&quot;</CardTitle>
+   899→        </CardHeader>
+   900→        <CardContent>
+   901→          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+   902→            {[
+   903→              { label: '① Agent', sub: 'SSE connect', bg: 'bg-slate-100 dark:bg-slate-800' },
+   904→              { label: '② initialize', sub: 'capabilities', bg: 'bg-blue-100 dark:bg-blue-900' },
+   905→              { label: '③ tools/list', sub: '8 tools', bg: 'bg-blue-100 dark:bg-blue-900' },
+   906→              { label: '④ tools/call', sub: 'search_skills', bg: 'bg-emerald-100 dark:bg-emerald-900' },
+   907→              { label: '⑤ POST /search', sub: 'hybrid API', bg: 'bg-amber-100 dark:bg-amber-900' },
+   908→              { label: '⑥ Engine', sub: 'embed→score', bg: 'bg-purple-100 dark:bg-purple-900' },
+   909→              { label: '⑦ SQLite', sub: 'query', bg: 'bg-gray-100 dark:bg-gray-800' },
+   910→            ].map((step, i) => (
+   911→              <React.Fragment key={i}>
+   912→                {i > 0 && <span className="text-muted-foreground">→</span>}
+   913→                <div className={`${step.bg} rounded-md px-2.5 py-1.5 border`}>
+   914→                  <div className="font-semibold">{step.label}</div>
+   915→                  <div className="text-[9px] text-muted-foreground">{step.sub}</div>
+   916→                </div>
+   917→              </React.Fragment>
+   918→            ))}
+   919→          </div>
+   920→          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
+   921→            <span className="text-muted-foreground">Then:</span>
+   922→            {[
+   923→              { label: '⑧ retrieve_knowledge', sub: '"cloud-save"', bg: 'bg-emerald-100 dark:bg-emerald-900' },
+   924→              { label: '⑨ GET /knowledge/:id', sub: 'full doc', bg: 'bg-amber-100 dark:bg-amber-900' },
+   925→              { label: '⑩ JSON result', sub: 'rules + steps', bg: 'bg-emerald-100 dark:bg-emerald-900' },
+   926→            ].map((step, i) => (
+   927→              <React.Fragment key={i}>
+   928→                {i > 0 && <span className="text-muted-foreground">→</span>}
+   929→                <div className={`${step.bg} rounded-md px-2.5 py-1.5 border`}>
+   930→                  <div className="font-semibold">{step.label}</div>
+   931→                  <div className="text-[9px] text-muted-foreground">{step.sub}</div>
+   932→                </div>
+   933→              </React.Fragment>
+   934→            ))}
+   935→          </div>
+   936→        </CardContent>
+   937→      </Card>
+   938→
+   939→      {/* How to connect */}
+   940→      <Card>
+   941→        <CardHeader className="pb-2">
+   942→          <CardTitle className="text-sm flex items-center gap-2"><Brain className="h-3.5 w-3.5 text-emerald-500" />How to Connect</CardTitle>
+   943→        </CardHeader>
+   944→        <CardContent>
+   945→          <div className="space-y-2 text-xs">
+   946→            <div className="bg-muted/40 rounded-lg p-3">
+   947→              <div className="font-semibold mb-1">Claude Code (claude_desktop_config.json)</div>
+   948→              <pre className="text-[10px] text-muted-foreground font-mono">{`{
+   949→  "mcpServers": {
+   950→    "industryx": {
+   951→      "url": "http://<host>:3002/sse"
+   952→    }
+   953→  }
+   954→}`}</pre>
+   955→            </div>
+   956→            <div className="bg-muted/40 rounded-lg p-3">
+   957→              <div className="font-semibold mb-1">Cursor / Generic MCP Client</div>
+   958→              <pre className="text-[10px] text-muted-foreground font-mono">{`{
+   959→  "mcp": {
+   960→    "servers": {
+   961→      "industryx": {
+   962→        "transport": "sse",
+   963→        "url": "http://<host>:3002/sse"
+   964→      }
+   965→    }
+   966→  }
+   967→}`}</pre>
+   968→            </div>
+   969→          </div>
+   970→        </CardContent>
+   971→      </Card>
+   972→    </div>
+   973→  )
+   974→}
+   975→

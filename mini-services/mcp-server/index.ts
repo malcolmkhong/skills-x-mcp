@@ -1,14 +1,20 @@
 // IndustryX MCP Server - Skills Provider
 // Implements the Model Context Protocol over SSE transport
 // This is a SKILLS PROVIDER - other AI agents connect here to access knowledge
+// Enhanced: API key authentication, rate limiting, usage tracking
 
 import { MCP_TOOLS, executeTool } from './tools';
-import { healthCheck } from './api-client';
+import { healthCheck, validateApiKey, trackUsage, type AuthContext } from './api-client';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 const PORT = 3002;
 const SERVER_NAME = 'industryx-knowledge-provider';
-const SERVER_VERSION = '1.0.0';
+const SERVER_VERSION = '1.1.0';
+
+// Rate limits
+const RATE_LIMIT_AUTHENTICATED = 60;  // requests per minute
+const RATE_LIMIT_UNAUTHENTICATED = 10; // requests per minute
+const RATE_LIMIT_WINDOW_MS = 60_000;   // 1 minute window
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,19 +36,92 @@ interface JsonRpcResponse {
   };
 }
 
+// ─── Rate Limiter ────────────────────────────────────────────────────────────
+
+interface RateLimitEntry {
+  timestamps: number[]; // timestamps of requests in the current window
+}
+
+class RateLimiter {
+  private entries: Map<string, RateLimitEntry> = new Map();
+
+  /**
+   * Check if a session is rate limited.
+   * Returns { allowed: true } or { allowed: false, retryAfterMs }
+   */
+  check(sessionId: string, isAuthenticated: boolean): { allowed: true } | { allowed: false; retryAfterMs: number } {
+    const now = Date.now();
+    const limit = isAuthenticated ? RATE_LIMIT_AUTHENTICATED : RATE_LIMIT_UNAUTHENTICATED;
+    const windowStart = now - RATE_LIMIT_WINDOW_MS;
+
+    let entry = this.entries.get(sessionId);
+    if (!entry) {
+      entry = { timestamps: [] };
+      this.entries.set(sessionId, entry);
+    }
+
+    // Remove timestamps outside the window
+    entry.timestamps = entry.timestamps.filter((ts) => ts > windowStart);
+
+    if (entry.timestamps.length >= limit) {
+      // Calculate when the oldest request in the window will expire
+      const oldestInWindow = entry.timestamps[0];
+      const retryAfterMs = oldestInWindow + RATE_LIMIT_WINDOW_MS - now;
+      return { allowed: false, retryAfterMs: Math.max(retryAfterMs, 1000) };
+    }
+
+    // Record this request
+    entry.timestamps.push(now);
+    return { allowed: true };
+  }
+
+  /**
+   * Clean up stale entries (called periodically)
+   */
+  cleanup(): void {
+    const now = Date.now();
+    const windowStart = now - RATE_LIMIT_WINDOW_MS;
+
+    for (const [sessionId, entry] of this.entries.entries()) {
+      // Remove old timestamps
+      entry.timestamps = entry.timestamps.filter((ts) => ts > windowStart);
+      // Remove empty entries
+      if (entry.timestamps.length === 0) {
+        this.entries.delete(sessionId);
+      }
+    }
+  }
+}
+
+const rateLimiter = new RateLimiter();
+
+// Clean up rate limit entries every 5 minutes
+setInterval(() => {
+  rateLimiter.cleanup();
+}, 5 * 60_000);
+
 // ─── SSE Connection Manager ─────────────────────────────────────────────────
 
 interface SSEConnection {
   controller: ReadableStreamDefaultController;
   keepalive: ReturnType<typeof setInterval>;
+  authContext: AuthContext | null; // Auth info for this session
 }
 
 class SSEConnectionManager {
   private connections: Map<string, SSEConnection> = new Map();
 
-  addConnection(sessionId: string, controller: ReadableStreamDefaultController, keepalive: ReturnType<typeof setInterval>): void {
-    this.connections.set(sessionId, { controller, keepalive });
-    console.log(`[SSE] Client connected: ${sessionId} (total: ${this.connections.size})`);
+  addConnection(
+    sessionId: string,
+    controller: ReadableStreamDefaultController,
+    keepalive: ReturnType<typeof setInterval>,
+    authContext: AuthContext | null
+  ): void {
+    this.connections.set(sessionId, { controller, keepalive, authContext });
+    const authInfo = authContext
+      ? `authenticated (userId: ${authContext.userId}, plan: ${authContext.plan})`
+      : 'unauthenticated (read-only)';
+    console.log(`[SSE] Client connected: ${sessionId} - ${authInfo} (total: ${this.connections.size})`);
   }
 
   removeConnection(sessionId: string): void {
@@ -68,12 +147,81 @@ class SSEConnectionManager {
     }
   }
 
+  getAuthContext(sessionId: string): AuthContext | null {
+    return this.connections.get(sessionId)?.authContext ?? null;
+  }
+
   getConnectionCount(): number {
     return this.connections.size;
+  }
+
+  getAuthenticatedCount(): number {
+    let count = 0;
+    for (const conn of this.connections.values()) {
+      if (conn.authContext) count++;
+    }
+    return count;
   }
 }
 
 const sseManager = new SSEConnectionManager();
+
+// ─── Authentication ─────────────────────────────────────────────────────────
+
+/**
+ * Extract API key from various sources:
+ * 1. URL query parameter: ?apiKey=ixk_xxxxx
+ * 2. Authorization header: Bearer ixk_xxxxx
+ */
+function extractApiKey(req: Request, url: URL): string | null {
+  // Check URL query parameter first
+  const queryApiKey = url.searchParams.get('apiKey');
+  if (queryApiKey) return queryApiKey;
+
+  // Check Authorization header
+  const authHeader = req.headers.get('authorization');
+  if (authHeader) {
+    if (authHeader.startsWith('Bearer ')) {
+      return authHeader.slice(7).trim();
+    }
+    return authHeader.trim();
+  }
+
+  return null;
+}
+
+/**
+ * Validate an API key and return the auth context.
+ * Returns null if no key provided or validation failed.
+ */
+async function authenticate(apiKey: string | null): Promise<AuthContext | null> {
+  if (!apiKey) return null;
+
+  // Basic format check before making the API call
+  if (!/^ixk_[0-9a-f]{16,}$/.test(apiKey)) {
+    console.log('[Auth] Invalid API key format, skipping validation');
+    return null;
+  }
+
+  const result = await validateApiKey(apiKey);
+
+  if (!result.valid) {
+    console.log(`[Auth] API key validation failed: ${result.error}`);
+    return null;
+  }
+
+  return {
+    apiKey,
+    userId: result.userId!,
+    apiKeyId: result.apiKeyId!,
+    permissions: result.permissions!,
+    plan: result.plan!,
+    workspaceId: result.workspaceId ?? null,
+    rateLimit: result.rateLimit!,
+    monthlyLimit: result.monthlyLimit!,
+    monthlyUsage: result.monthlyUsage!,
+  };
+}
 
 // ─── JSON-RPC Message Handling ───────────────────────────────────────────────
 
@@ -90,7 +238,11 @@ function createError(
   return { jsonrpc: '2.0', id, error: { code, message, data } };
 }
 
-async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> {
+async function handleJsonRpc(
+  request: JsonRpcRequest,
+  authContext: AuthContext | null,
+  sessionId: string
+): Promise<JsonRpcResponse> {
   const { id, method, params } = request;
 
   try {
@@ -144,9 +296,44 @@ async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> 
           );
         }
 
-        console.log(`[Tool] Calling: ${toolName} with args:`, JSON.stringify(toolArgs));
-        const result = await executeTool(toolName, toolArgs);
-        console.log(`[Tool] Completed: ${toolName}`);
+        // Rate limit check
+        const isAuthenticated = authContext !== null;
+        const rateCheck = rateLimiter.check(sessionId, isAuthenticated);
+        if (!rateCheck.allowed) {
+          console.log(`[Rate Limit] Session ${sessionId} rate limited. Retry after ${rateCheck.retryAfterMs}ms`);
+          return createError(
+            id,
+            -32029,
+            `Rate limit exceeded. Maximum ${isAuthenticated ? RATE_LIMIT_AUTHENTICATED : RATE_LIMIT_UNAUTHENTICATED} requests per minute. Retry after ${Math.ceil(rateCheck.retryAfterMs / 1000)} seconds.`,
+            { retryAfterMs: rateCheck.retryAfterMs }
+          );
+        }
+
+        const authLabel = authContext
+          ? `userId: ${authContext.userId} (${authContext.plan})`
+          : 'unauthenticated';
+        console.log(`[Tool] Calling: ${toolName} | Session: ${sessionId} | Auth: ${authLabel}`);
+        const startTime = Date.now();
+
+        const result = await executeTool(toolName, toolArgs, authContext);
+
+        const duration = Date.now() - startTime;
+        const resultText = result.content[0]?.text ?? '';
+        const isResultError = resultText.startsWith('Error') || resultText.startsWith('Permission denied');
+        console.log(`[Tool] Completed: ${toolName} | Duration: ${duration}ms | Success: ${!isResultError}`);
+
+        // Track usage for unauthenticated users too (for monitoring)
+        if (!authContext) {
+          trackUsage({
+            userId: 'anonymous',
+            eventType: 'mcp_call',
+            toolName,
+            query: (toolArgs.query as string) ?? undefined,
+            durationMs: duration,
+            success: !isResultError,
+            errorMessage: isResultError ? resultText.substring(0, 200) : undefined,
+          });
+        }
 
         return createResponse(id, result);
       }
@@ -193,6 +380,10 @@ const server = Bun.serve({
       const sessionId = generateSessionId();
       const encoder = new TextEncoder();
 
+      // Authenticate the SSE connection
+      const apiKey = extractApiKey(req, url);
+      const authContext = await authenticate(apiKey);
+
       let closed = false;
 
       const stream = new ReadableStream({
@@ -213,7 +404,7 @@ const server = Bun.serve({
             }
           }, 15000);
 
-          sseManager.addConnection(sessionId, controller, keepalive);
+          sseManager.addConnection(sessionId, controller, keepalive, authContext);
         },
         cancel() {
           closed = true;
@@ -242,6 +433,27 @@ const server = Bun.serve({
         );
       }
 
+      // Get auth context from the SSE session (set during SSE connection)
+      let authContext = sseManager.getAuthContext(sessionId);
+
+      // Also check Authorization header on the messages endpoint
+      // This allows authenticating per-request if no session auth exists
+      if (!authContext) {
+        const headerApiKey = extractApiKey(req, url);
+        if (headerApiKey) {
+          authContext = await authenticate(headerApiKey);
+          // Update the session's auth context if we just authenticated
+          // (This allows "upgrading" an unauthenticated session)
+          if (authContext) {
+            const conn = (sseManager as unknown as { connections: Map<string, SSEConnection> }).connections.get(sessionId);
+            if (conn) {
+              conn.authContext = authContext;
+              console.log(`[Auth] Session ${sessionId} upgraded to authenticated (userId: ${authContext.userId})`);
+            }
+          }
+        }
+      }
+
       let body: JsonRpcRequest;
       try {
         body = (await req.json()) as JsonRpcRequest;
@@ -260,7 +472,7 @@ const server = Bun.serve({
         });
       }
 
-      const response = await handleJsonRpc(body);
+      const response = await handleJsonRpc(body, authContext, sessionId);
 
       // Also send via SSE if it's a tool call
       if (body.method === 'tools/call' && sessionId) {
@@ -295,6 +507,15 @@ const server = Bun.serve({
           description: 'MCP Skills Provider for IndustryX Knowledge Base. Connect your AI agent to access skills, SOPs, architecture docs, and more.',
           apiConnection: apiHealthy ? 'connected' : 'disconnected',
           activeSSEConnections: sseManager.getConnectionCount(),
+          authenticatedConnections: sseManager.getAuthenticatedCount(),
+          rateLimits: {
+            authenticated: `${RATE_LIMIT_AUTHENTICATED}/min`,
+            unauthenticated: `${RATE_LIMIT_UNAUTHENTICATED}/min`,
+          },
+          authentication: {
+            methods: ['API key via SSE query (?apiKey=ixk_xxxxx)', 'Bearer token in Authorization header'],
+            unauthenticatedAccess: 'Read-only with stricter rate limiting',
+          },
           tools: MCP_TOOLS.map((t) => t.name),
           mcpConfig: {
             transport: 'SSE',
@@ -316,9 +537,24 @@ const server = Bun.serve({
           role: 'skills-provider',
           description: 'IndustryX Knowledge MCP Server - A Skills Provider for AI Agents',
           howToConnect: {
-            claudeCode: 'Add to your claude_desktop_config.json: { "mcpServers": { "industryx": { "url": "http://<host>:3002/sse" } } }',
-            cursor: 'Add to your MCP settings with SSE transport pointing to /sse endpoint',
-            generic: 'Connect via SSE to /sse, send JSON-RPC messages to /messages?sessionId=<id>',
+            claudeCode: 'Add to your claude_desktop_config.json: { "mcpServers": { "industryx": { "url": "http://<host>:3002/sse?apiKey=ixk_your_api_key" } } }',
+            cursor: 'Add to your MCP settings with SSE transport pointing to /sse endpoint (with optional ?apiKey= parameter)',
+            generic: 'Connect via SSE to /sse?apiKey=ixk_your_key, send JSON-RPC messages to /messages?sessionId=<id>',
+            unauthenticated: 'Connect via SSE to /sse without an API key for read-only access with limited rate',
+          },
+          authentication: {
+            methods: [
+              'API key in SSE URL query: /sse?apiKey=ixk_xxxxx',
+              'Authorization header on /messages: Bearer ixk_xxxxx',
+            ],
+            unauthenticated: {
+              access: 'Read-only tools (search, retrieve, context)',
+              rateLimit: `${RATE_LIMIT_UNAUTHENTICATED} requests/minute`,
+            },
+            authenticated: {
+              access: 'All tools based on API key permissions',
+              rateLimit: `${RATE_LIMIT_AUTHENTICATED} requests/minute`,
+            },
           },
           protocol: 'Model Context Protocol (SSE transport)',
           protocolVersion: '2024-11-05',
@@ -360,6 +596,15 @@ MCP_TOOLS.forEach((tool) => {
 });
 console.log('');
 console.log(`  API Base URL:   ${process.env.API_BASE_URL || 'http://localhost:3000'}`);
+console.log('');
+console.log('  Authentication:');
+console.log('    - API key in SSE query: /sse?apiKey=ixk_xxxxx');
+console.log('    - Bearer token in Authorization header');
+console.log('    - Unauthenticated: read-only access');
+console.log('');
+console.log('  Rate Limits:');
+console.log(`    - Authenticated:   ${RATE_LIMIT_AUTHENTICATED} req/min`);
+console.log(`    - Unauthenticated: ${RATE_LIMIT_UNAUTHENTICATED} req/min`);
 console.log('');
 console.log('  Connect your AI agent via MCP SSE transport:');
 console.log('    Claude Code: Add to claude_desktop_config.json');
