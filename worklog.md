@@ -512,3 +512,35 @@ Stage Summary:
 - Lint passes with zero errors
 - Dev server running successfully on port 3000
 - MCP server accessible on port 3002
+
+---
+Task ID: 10
+Agent: main-orchestrator
+Task: Restructure: Landing page first, login as top-right dropdown panel
+
+Work Log:
+- Created /src/components/dashboard/landing-page.tsx — Full landing page with:
+  - Sticky navbar with logo, nav links, and Sign In dropdown
+  - Hero section with gradient background, tagline, stats
+  - Architecture flow diagram (6-layer horizontal flow)
+  - 6 feature cards (AI-Native Knowledge, Semantic Retrieval, MCP Server, Token Optimization, API Key Management, Auth & Workspaces)
+  - 8 knowledge type cards with JSON schema preview
+  - MCP Server section with 8 tools list and 6 client cards
+  - Connection snippet code block
+  - Token savings section with stats
+  - 3-tier pricing (Free, Pro $21/mo, Ultra $100/mo) with Enterprise mention
+  - CTA section and footer
+  - LoginDropdown component with GitHub, Google, Demo form (native form submission for proper cookie handling)
+- Rewrote /src/app/page.tsx — Changed from login-wall to landing-page-first:
+  - Unauthenticated → LandingPage (NOT LoginScreen)
+  - Authenticated → Dashboard with sidebar
+  - Removed LoginScreen import from main page
+- Fixed ESLint error in landing-page.tsx (JSX comment text node)
+- Verified complete flow: Landing page → Sign In dropdown → Demo login → Dashboard → Sign out → Landing page
+
+Stage Summary:
+- Landing page is now the first thing visitors see (no login wall)
+- Sign In is a dropdown panel in the top-right navbar
+- After login, redirects to the full dashboard
+- Complete marketing landing page with all product info
+- Responsive design works on both mobile and desktop

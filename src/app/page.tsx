@@ -21,7 +21,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { NAV_TABS, type NavTabId } from '@/components/dashboard/types'
 
-import LoginScreen from '@/components/dashboard/login-screen'
+import LandingPage from '@/components/dashboard/landing-page'
 import OverviewTab from '@/components/dashboard/overview-tab'
 import KnowledgeTab from '@/components/dashboard/knowledge-tab'
 import SearchTab from '@/components/dashboard/search-tab'
@@ -36,7 +36,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   LayoutDashboard, Database, Search, Key, BarChart3, Server, Users, Settings,
 }
 
-// Sidebar Nav component defined outside render
+// Sidebar Nav component
 function SidebarNav({ activeTab, onNavigate }: { activeTab: NavTabId; onNavigate: (tab: string) => void }) {
   return (
     <nav className="flex-1 p-2 space-y-0.5">
@@ -70,7 +70,7 @@ export default function DashboardPage() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const seededRef = useRef(false)
 
-  // Seed database on first load if needed
+  // Seed database on first authenticated load if needed
   useEffect(() => {
     if (status !== 'authenticated' || seededRef.current) return
     let cancelled = false
@@ -109,12 +109,12 @@ export default function DashboardPage() {
     )
   }
 
-  // Unauthenticated - show login
+  // Unauthenticated — show landing page (NOT a login wall)
   if (status === 'unauthenticated' || !session) {
-    return <LoginScreen />
+    return <LandingPage />
   }
 
-  // Authenticated - show dashboard
+  // ─── Authenticated — show dashboard ─────────────────────────────────
   const user = session.user
   const userName = user?.name || user?.email || 'User'
   const userInitial = userName[0].toUpperCase()
