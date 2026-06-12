@@ -1,0 +1,81 @@
+{
+  "id": "deployment-sop",
+  "title": "Deployment Standard Operating Procedure",
+  "category": "sops",
+  "description": "Step-by-step SOP for deploying services to production with pre-deployment checklist, blue-green deployment process, database migration strategy (two-phase for destructive changes), rollback procedures, emergency deployment shortcuts, and deployment window schedule.",
+  "tags": ["deployment", "release", "rollback", "production", "verification", "blue-green", "migration"],
+  "intents": [
+    "deploy to production",
+    "rollback deployment",
+    "emergency hotfix",
+    "release process",
+    "database migration deployment",
+    "blue-green deployment",
+    "deployment checklist",
+    "maintenance mode deployment",
+    "deployment windows"
+  ],
+  "dependencies": ["ci-cd-pipeline", "incident-response"],
+  "anti_patterns": [
+    "deploying without code review and approval",
+    "combining destructive database migrations with code deployment in the same release",
+    "deploying without a rollback plan",
+    "skipping staging validation before production",
+    "deploying on Fridays, weekends, or before major events",
+    "no feature flags for new features preventing gradual rollout",
+    "deploying without monitoring readiness",
+    "attempting re-deploy before identifying root cause of a failed deployment",
+    "skipping stakeholder notification before deployment"
+  ],
+  "implementation_steps": [
+    "Complete pre-deployment checklist: (1) Code review with at least 1 approval (2 for critical path), (2) All automated tests pass with no coverage decrease, (3) Staging validation by QA mirroring production config, (4) Database migrations reviewed for backward compatibility with two-phase plan for destructive changes, (5) New features wrapped in feature flags defaulting to disabled, (6) Monitoring dashboards and alert thresholds updated, (7) Documented rollback plan with specific git commit hash and manual steps",
+    "Create release tag: annotated git tag from main branch (e.g., 'git tag -a v1.4.2 -m \"Release v1.4.2: Add trading system and cloud save\"'), push to origin; tag triggers CI/CD pipeline to build production artifact and publish to container registry",
+    "Notify stakeholders: post deployment notification to #deployments Slack channel at least 30 minutes before planned deployment window; include release version, expected duration, affected services, and rollback commit hash",
+    "Enable maintenance mode if deployment requires downtime: use feature flag service to serve static holding page to users while deployment proceeds",
+    "Execute database migrations in order: (1) Non-destructive migrations (add columns, tables, indexes) applied BEFORE new code deployment—current production code must be compatible; (2) Deploy new code that uses the new schema; (3) Destructive migrations (drop columns, tables) applied in a SUBSEQUENT deployment after confirming old code no longer references removed elements—never combine destructive migrations with code deployment in same release",
+    "Deploy to production using blue-green strategy: (1) Deploy new version to inactive (green) environment, (2) Run automated smoke tests against green environment, (3) Switch load balancer to route traffic to green environment, (4) Monitor error rates, latency, and key business metrics for 15 minutes, (5) If metrics healthy, deployment complete—blue environment remains available for rollback",
+    "Perform post-deployment verification: verify health check endpoints return 200 on all instances; confirm error rates within baseline (less than 0.1% increase); check key user flows (login, core gameplay, save, trade) are functional; review application logs for new warning/error patterns; verify scheduled jobs and background workers processing normally",
+    "Close deployment: post completion notification to #deployments channel; update release log in project wiki with version, deployment timestamp, and notes",
+    "For rollback: switch load balancer back to blue (previous) environment; verify previous version serving traffic correctly; assess whether migration rollback needed (non-destructive generally safe to leave; destructive requires backup restore or compensating migration); notify team in #incidents channel and create post-mortem ticket; do NOT attempt re-deploy until root cause identified and fixed",
+    "For emergency deployment: 30-minute notification window waived (notify #incidents immediately); single reviewer approval sufficient; staging validation abbreviated to smoke tests with QA lead approval; all other SOP steps remain mandatory including rollback plan"
+  ],
+  "rules": [
+    "All changes must be reviewed and approved by at least one team member other than the author; critical path changes require two approvals",
+    "All automated tests must pass in CI pipeline including unit, integration, and end-to-end; test coverage for changed modules must not decrease",
+    "Staging validation must mirror production configuration including environment variables, feature flags, and database schema",
+    "Destructive migrations (column drops, table renames) must be split into a two-phase deployment: non-destructive first, then code, then destructive in a subsequent release",
+    "New features must be wrapped in feature flags that default to disabled for gradual rollout without user-facing changes",
+    "Monitoring dashboards and alert thresholds must be updated to reflect any new metrics or changed SLIs before deployment",
+    "A documented rollback plan must exist including specific git commit hash and any manual steps required",
+    "Post deployment notification to #deployments Slack channel at least 30 minutes before planned window with version, duration, affected services, and rollback hash",
+    "Blue-green deployment: deploy to inactive environment, run smoke tests, switch load balancer, monitor for 15 minutes",
+    "Post-deployment verification: health checks, error rates within baseline (<0.1% increase), key user flows functional, log review, background workers operational",
+    "On rollback: switch to previous environment, assess migration rollback need, notify #incidents, create post-mortem ticket, do not re-deploy until root cause fixed",
+    "Emergency deployment: notification window waived, single reviewer approval, staging abbreviated with QA lead approval, rollback plan still mandatory",
+    "Regular deployment windows: Primary (Tue/Thu 10:00-12:00 UTC), Secondary (Mon/Wed 14:00-16:00 UTC), Emergency (any time with incident commander approval)",
+    "No deployments on Fridays, weekends, or the day before a major event without VP-level approval"
+  ],
+  "examples": [
+    {
+      "name": "Two-Phase Database Migration",
+      "description": "Release 1: Add new column 'display_name' to users table (non-destructive, backward compatible) → Deploy code that writes to both old and new columns → Release 2: Drop old 'nickname' column (destructive, after confirming no code references it)"
+    },
+    {
+      "name": "Blue-Green Deployment",
+      "description": "Deploy v1.5.0 to green environment → automated smoke tests pass → switch load balancer from blue to green → monitor error rates, latency, and business metrics for 15 minutes → metrics healthy, deployment complete → blue environment kept warm for 24 hours for potential rollback"
+    },
+    {
+      "name": "Emergency Hotfix Flow",
+      "description": "Critical security vulnerability discovered → skip 30-minute notification window, post to #incidents immediately → single reviewer approves PR → staging abbreviated to smoke tests with QA lead sign-off → standard deployment steps executed including rollback plan → post-deployment verification as normal"
+    },
+    {
+      "name": "Rollback After Failed Deployment",
+      "description": "Post-deployment monitoring shows error rate increased by 2% → switch load balancer back to blue environment → verify previous version serving traffic correctly → non-destructive migration (added column) left in place → notify #incidents channel → create post-mortem ticket → do not re-deploy until root cause identified"
+    }
+  ],
+  "references": ["ci-cd-pipeline", "incident-response"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

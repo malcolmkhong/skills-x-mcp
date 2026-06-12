@@ -1,6 +1,6 @@
 // API: List all knowledge documents / Create new knowledge document
 import { NextRequest, NextResponse } from 'next/server';
-import { listKnowledge, createKnowledge } from '@/lib/knowledge/database';
+import { listKnowledge, createKnowledge, parseDocumentFields } from '@/lib/knowledge/database';
 import type { KnowledgeCategory } from '@/types/knowledge';
 
 export async function GET(request: NextRequest) {
@@ -10,12 +10,8 @@ export async function GET(request: NextRequest) {
     
     const documents = await listKnowledge(category || undefined);
     
-    // Return without embedding data to reduce response size
-    const sanitized = documents.map(doc => ({
-      ...doc,
-      embedding: undefined,
-      keywords: JSON.parse(doc.keywords),
-    }));
+    // Parse JSON fields and strip embedding data
+    const sanitized = documents.map(doc => parseDocumentFields(doc));
     
     return NextResponse.json({ documents: sanitized });
   } catch (error) {
@@ -26,11 +22,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { slug, title, category, description, keywords, markdownContent } = body;
+    const { slug, title, category, description, tags, intents, dependencies, antiPatterns, implementationSteps, rules, examples, references, schemaVersion } = body;
     
-    if (!slug || !title || !category || !markdownContent) {
+    if (!slug || !title || !category) {
       return NextResponse.json(
-        { error: 'slug, title, category, and markdownContent are required' },
+        { error: 'slug, title, and category are required' },
         { status: 400 }
       );
     }
@@ -40,16 +36,19 @@ export async function POST(request: NextRequest) {
       title,
       category,
       description,
-      keywords,
-      markdownContent,
+      tags,
+      intents,
+      dependencies,
+      antiPatterns,
+      implementationSteps,
+      rules,
+      examples,
+      references,
+      schemaVersion,
     });
     
     return NextResponse.json({ 
-      document: {
-        ...document,
-        embedding: undefined,
-        keywords: JSON.parse(document.keywords),
-      }
+      document: parseDocumentFields(document)
     }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

@@ -1,0 +1,87 @@
+{
+  "id": "incident-response",
+  "title": "Incident Response Standard Operating Procedure",
+  "category": "sops",
+  "description": "Comprehensive incident response procedure covering severity classification (SEV1-4), full incident lifecycle (detection, triage, investigation, mitigation, resolution, post-mortem), communication templates, and on-call expectations.",
+  "tags": ["incident", "response", "triage", "mitigation", "post-mortem", "on-call", "SEV1", "blameless"],
+  "intents": [
+    "handle production incident",
+    "incident triage",
+    "post-mortem",
+    "on-call response",
+    "incident severity classification",
+    "incident mitigation strategies",
+    "blameless post-mortem",
+    "incident communication",
+    "rollback as mitigation",
+    "circuit breaker triage"
+  ],
+  "dependencies": ["deployment-sop"],
+  "anti_patterns": [
+    "no defined severity levels leading to inconsistent response",
+    "skipping incident documentation and real-time note-taking",
+    "attempting root cause fix before mitigating user impact",
+    "blame-oriented post-mortems that discourage reporting",
+    "no escalation path when on-call cannot resolve within timeframe",
+    "single-person incident response without team coordination",
+    "not communicating with stakeholders during active incidents",
+    "ignoring low-severity incidents that may indicate systemic issues"
+  ],
+  "implementation_steps": [
+    "Classify incident severity: SEV1 Critical (complete outage or data loss affecting >25% users, all hands, 30-min mitigation target), SEV2 Major (10-25% users or core feature unavailable, on-call + team lead, 2-hour mitigation target), SEV3 Minor (<10% users or non-core feature degraded, on-call during business hours, 8-hour target), SEV4 Low (cosmetic or within SLO, next sprint)",
+    "Execute Phase 1 - Detection: receive alerts from monitoring (Prometheus, Grafana, Datadog via PagerDuty), user reports escalated by support (severity assessment matrix), or engineer observation; create incident record with description, severity, affected services, detection source, and timestamp",
+    "Execute Phase 2 - Triage: assign incident commander based on severity (SEV1: engineering lead or designated IC, SEV2: team lead of affected service, SEV3/4: on-call engineer); IC confirms incident is real, assigns severity, opens dedicated Slack channel (#inc-YYYYMMDD-brief-description), assembles response team by paging on-call engineers, initiates stakeholder communication",
+    "Execute Phase 3 - Investigation: (1) Check recent deployments in last 4 hours for correlation and evaluate rollback, (2) Review error rates, latency, CPU/memory, and application logs around incident start time, (3) Trace distributed requests using Jaeger/Zipkin to identify failure points, (4) Verify health of external dependencies (databases, caches, third-party APIs) for cascading failures, (5) Reproduce in staging if possible to confirm root cause hypothesis; document all findings in incident channel in real-time",
+    "Execute Phase 4 - Mitigation: apply fastest strategy to restore service—Rollback (revert to previous version), Feature Flag Disable (turn off problematic feature without redeploying), Traffic Rerouting (shift away from affected region/instance), Scaling (increase instances for capacity exhaustion), Circuit Breaker (shed load on failing dependency, serve degraded responses), Database Failover (promote read replica); IC authorizes action, engineer executes, stakeholders updated once mitigation confirmed",
+    "Execute Phase 5 - Resolution: develop and test fix in dev environment → deploy to staging and validate → follow standard deployment SOP for production → remove temporary mitigations (re-enable feature flags, reset circuit breakers, reduce scaled instances) → monitor for 24 hours to confirm stability and no regressions",
+    "Execute Phase 6 - Post-Mortem: conduct blameless post-mortem within 48 hours for SEV1/SEV2, within one week for SEV3; document incident summary (timeline from detection to resolution), root cause analysis (technical root cause and contributing factors), impact assessment (duration, affected users, data loss), what went well, what could be improved, and specific/assigned/time-bound action items; track action items in project management system with weekly review until completion",
+    "Follow on-call expectations: primary on-call reachable within 5 minutes, start investigation within 15 minutes; weekly rotations with handoff at 09:00 UTC Mondays; on-call must have access to all production systems, monitoring dashboards, and incident management tool; escalate to secondary on-call and engineering lead if SEV1 not resolved within 30 minutes"
+  ],
+  "rules": [
+    "SEV1 (Critical): complete outage or data loss affecting >25% users; all hands response; 30-minute mitigation target",
+    "SEV2 (Major): significant degradation affecting 10-25% users or core feature unavailable; on-call + team lead; 2-hour mitigation target",
+    "SEV3 (Minor): limited impact affecting <10% users or non-core feature degraded; on-call during business hours; 8-hour mitigation target",
+    "SEV4 (Low): cosmetic or within SLO thresholds; logged and addressed in next sprint",
+    "Incident commander assignment: SEV1 = engineering lead or designated IC, SEV2 = team lead of affected service, SEV3/4 = on-call engineer",
+    "IC must confirm incident is real, assign severity, open dedicated Slack channel, assemble response team, initiate stakeholder communication",
+    "Investigation must check recent deployments first (last 4 hours) and evaluate rollback if correlation found",
+    "All investigation findings must be documented in the incident channel in real-time for team members joining later",
+    "Mitigation aims to restore service ASAP even if root cause is not fully understood; approved strategies: rollback, feature flag disable, traffic rerouting, scaling, circuit breaker, database failover",
+    "IC authorizes mitigation action; responsible engineer executes; stakeholders updated once mitigation confirmed effective",
+    "After mitigation, follow standard deployment SOP for permanent fix; remove all temporary mitigations; monitor for 24 hours",
+    "Blameless post-mortem required within 48 hours for SEV1/SEV2, within one week for SEV3",
+    "Post-mortem must include: incident summary timeline, root cause analysis, impact assessment, what went well, what could improve, and assigned time-bound action items",
+    "Action items tracked in project management system and reviewed weekly until completion",
+    "Primary on-call must be reachable within 5 minutes and start investigation within 15 minutes",
+    "On-call rotations are weekly with handoff at 09:00 UTC on Mondays",
+    "On-call must have access to all production systems, monitoring dashboards, and incident management tool",
+    "Escalate to secondary on-call and engineering lead if SEV1 not resolved within 30 minutes"
+  ],
+  "examples": [
+    {
+      "name": "SEV1 Incident: Complete Service Outage",
+      "description": "Trading service returns 503 for all requests affecting >25% of active users → PagerDuty alerts on-call engineer → engineering lead assigned as IC → #inc-20260305-trading-outage opened → investigation reveals failed database connection pool → circuit breaker tripped to shed load → root cause: connection pool exhaustion from unbounded query → mitigation: scale database replicas and restart connection pool → resolution: add connection pool limits in code → post-mortem within 48 hours"
+    },
+    {
+      "name": "Communication Template - Initial",
+      "description": "'We are investigating reports of [brief description]. The incident has been classified as SEV[1-4]. The response team is actively working on mitigation. Next update in [15/30/60] minutes.'"
+    },
+    {
+      "name": "Communication Template - Mitigated",
+      "description": "'The incident affecting [brief description] has been mitigated as of [timestamp]. Services are recovering. We are monitoring for stability and working on a permanent fix.'"
+    },
+    {
+      "name": "Communication Template - Resolved",
+      "description": "'The incident affecting [brief description] has been fully resolved as of [timestamp]. A post-mortem will be published within [48 hours/1 week].'"
+    },
+    {
+      "name": "Mitigation via Feature Flag Disable",
+      "description": "New feature causes increased error rate → IC authorizes feature flag disable → on-call engineer turns off the flag via feature flag service without redeploying → error rate returns to baseline → stakeholders notified of mitigation → team develops fix → follows standard deployment SOP for permanent resolution"
+    }
+  ],
+  "references": ["deployment-sop", "ci-cd-pipeline"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

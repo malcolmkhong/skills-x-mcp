@@ -1,21 +1,24 @@
 // IndustryX Knowledge MCP Server - Database Service
-// CRUD operations for knowledge documents
+// AI-Native: CRUD operations for JSON knowledge units
 
 import { db } from '@/lib/db';
-import { generateEmbedding } from './embedding';
-import type { KnowledgeCategory, KnowledgeCreateInput, KnowledgeUpdateInput, KnowledgeStats } from '@/types/knowledge';
+import { generateEmbedding, buildEmbeddingText } from './embedding';
+import type { KnowledgeCategory, KnowledgeCreateInput, KnowledgeUpdateInput, KnowledgeStats, KnowledgeExample } from '@/types/knowledge';
 
 /**
  * Create a new knowledge document with auto-generated embedding
  */
 export async function createKnowledge(input: KnowledgeCreateInput) {
-  // Generate embedding from title + description + keywords + first part of content
-  const embeddingText = [
-    input.title,
-    input.description || '',
-    ...(input.keywords || []),
-    input.markdownContent.substring(0, 1000),
-  ].join(' ');
+  // Build embedding text from structured fields
+  const embeddingText = buildEmbeddingText({
+    title: input.title,
+    description: input.description || '',
+    tags: input.tags,
+    intents: input.intents,
+    rules: [],
+    antiPatterns: input.antiPatterns,
+    implementationSteps: input.implementationSteps,
+  });
 
   const embedding = generateEmbedding(embeddingText);
 
@@ -25,9 +28,16 @@ export async function createKnowledge(input: KnowledgeCreateInput) {
       title: input.title,
       category: input.category,
       description: input.description || '',
-      keywords: JSON.stringify(input.keywords || []),
-      markdownContent: input.markdownContent,
+      tags: JSON.stringify(input.tags || []),
+      intents: JSON.stringify(input.intents || []),
+      dependencies: JSON.stringify(input.dependencies || []),
+      antiPatterns: JSON.stringify(input.antiPatterns || []),
+      implementationSteps: JSON.stringify(input.implementationSteps || []),
+      rules: JSON.stringify(input.rules || []),
+      examples: JSON.stringify(input.examples || []),
+      references: JSON.stringify(input.references || []),
       embedding: JSON.stringify(embedding),
+      schemaVersion: input.schemaVersion || '1.0.0',
       version: 1,
     },
   });
@@ -53,6 +63,7 @@ export async function getKnowledgeById(id: string) {
 
 /**
  * List all knowledge documents with optional category filter
+ * Excludes embedding to reduce payload
  */
 export async function listKnowledge(category?: KnowledgeCategory, includeInactive: boolean = false) {
   return db.knowledge.findMany({
@@ -67,9 +78,16 @@ export async function listKnowledge(category?: KnowledgeCategory, includeInactiv
       title: true,
       category: true,
       description: true,
-      keywords: true,
-      markdownContent: true,
+      tags: true,
+      intents: true,
+      dependencies: true,
+      antiPatterns: true,
+      implementationSteps: true,
+      rules: true,
+      examples: true,
+      references: true,
       version: true,
+      schemaVersion: true,
       accessCount: true,
       relevanceScore: true,
       isActive: true,
@@ -86,15 +104,18 @@ export async function listKnowledge(category?: KnowledgeCategory, includeInactiv
 export async function updateKnowledge(id: string, input: KnowledgeUpdateInput) {
   // If content changed, regenerate embedding
   let embedding: number[] | undefined;
-  if (input.markdownContent || input.title || input.description || input.keywords) {
+  if (input.title || input.description || input.tags || input.intents || input.rules || input.antiPatterns || input.implementationSteps) {
     const current = await db.knowledge.findUnique({ where: { id } });
     if (current) {
-      const embeddingText = [
-        input.title || current.title,
-        input.description || current.description,
-        ...(input.keywords || JSON.parse(current.keywords)),
-        (input.markdownContent || current.markdownContent).substring(0, 1000),
-      ].join(' ');
+      const embeddingText = buildEmbeddingText({
+        title: input.title || current.title,
+        description: input.description !== undefined ? input.description : current.description,
+        tags: input.tags || JSON.parse(current.tags),
+        intents: input.intents || JSON.parse(current.intents),
+        rules: input.rules || JSON.parse(current.rules),
+        antiPatterns: input.antiPatterns || JSON.parse(current.antiPatterns),
+        implementationSteps: input.implementationSteps || JSON.parse(current.implementationSteps),
+      });
       embedding = generateEmbedding(embeddingText);
     }
   }
@@ -105,8 +126,14 @@ export async function updateKnowledge(id: string, input: KnowledgeUpdateInput) {
       ...(input.title ? { title: input.title } : {}),
       ...(input.category ? { category: input.category } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
-      ...(input.keywords ? { keywords: JSON.stringify(input.keywords) } : {}),
-      ...(input.markdownContent ? { markdownContent: input.markdownContent } : {}),
+      ...(input.tags ? { tags: JSON.stringify(input.tags) } : {}),
+      ...(input.intents ? { intents: JSON.stringify(input.intents) } : {}),
+      ...(input.dependencies ? { dependencies: JSON.stringify(input.dependencies) } : {}),
+      ...(input.antiPatterns ? { antiPatterns: JSON.stringify(input.antiPatterns) } : {}),
+      ...(input.implementationSteps ? { implementationSteps: JSON.stringify(input.implementationSteps) } : {}),
+      ...(input.rules ? { rules: JSON.stringify(input.rules) } : {}),
+      ...(input.examples ? { examples: JSON.stringify(input.examples) } : {}),
+      ...(input.references ? { references: JSON.stringify(input.references) } : {}),
       ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
       version: { increment: 1 },
     },
@@ -114,10 +141,9 @@ export async function updateKnowledge(id: string, input: KnowledgeUpdateInput) {
 }
 
 /**
- * Delete a knowledge document
+ * Delete a knowledge document (soft delete)
  */
 export async function deleteKnowledge(id: string) {
-  // Soft delete by setting isActive to false
   return db.knowledge.update({
     where: { id },
     data: { isActive: false },
@@ -139,12 +165,27 @@ export async function rebuildEmbedding(id: string) {
   const doc = await db.knowledge.findUnique({ where: { id } });
   if (!doc) throw new Error('Document not found');
 
-  const embeddingText = [
-    doc.title,
-    doc.description,
-    ...JSON.parse(doc.keywords),
-    doc.markdownContent.substring(0, 1000),
-  ].join(' ');
+  let tags: string[] = [];
+  let intents: string[] = [];
+  let rules: string[] = [];
+  let antiPatterns: string[] = [];
+  let implementationSteps: string[] = [];
+  
+  try { tags = JSON.parse(doc.tags); } catch { /* empty */ }
+  try { intents = JSON.parse(doc.intents); } catch { /* empty */ }
+  try { rules = JSON.parse(doc.rules); } catch { /* empty */ }
+  try { antiPatterns = JSON.parse(doc.antiPatterns); } catch { /* empty */ }
+  try { implementationSteps = JSON.parse(doc.implementationSteps); } catch { /* empty */ }
+
+  const embeddingText = buildEmbeddingText({
+    title: doc.title,
+    description: doc.description,
+    tags,
+    intents,
+    rules,
+    antiPatterns,
+    implementationSteps,
+  });
 
   const embedding = generateEmbedding(embeddingText);
 
@@ -225,7 +266,39 @@ export async function getSimilarDocuments(id: string, limit: number = 5) {
     embedding = [];
   }
 
+  // Build a search query from the document's intents and tags
+  let intents: string[] = [];
+  let tags: string[] = [];
+  try { intents = JSON.parse(doc.intents); } catch { /* empty */ }
+  try { tags = JSON.parse(doc.tags); } catch { /* empty */ }
+  const searchQuery = [doc.title, doc.description, ...intents.slice(0, 3), ...tags.slice(0, 3)].join(' ');
+
   const { hybridSearch } = await import('./vectorSearch');
-  return hybridSearch(doc.title + ' ' + doc.description, embedding, limit + 1) // +1 to exclude self
+  return hybridSearch(searchQuery, embedding, limit + 1) // +1 to exclude self
     .then(results => results.filter(r => r.id !== id).slice(0, limit));
+}
+
+/**
+ * Parse a knowledge document's JSON fields for API responses
+ */
+export function parseDocumentFields(doc: Record<string, unknown>) {
+  const parseJson = (field: unknown, fallback: unknown[] = []) => {
+    if (typeof field === 'string') {
+      try { return JSON.parse(field); } catch { return fallback; }
+    }
+    return Array.isArray(field) ? field : fallback;
+  };
+
+  return {
+    ...doc,
+    tags: parseJson(doc.tags),
+    intents: parseJson(doc.intents),
+    dependencies: parseJson(doc.dependencies),
+    antiPatterns: parseJson(doc.antiPatterns),
+    implementationSteps: parseJson(doc.implementationSteps),
+    rules: parseJson(doc.rules),
+    examples: parseJson(doc.examples, []),
+    references: parseJson(doc.references),
+    embedding: undefined, // Never return embedding
+  };
 }

@@ -1,0 +1,83 @@
+{
+  "id": "trading-system",
+  "title": "Trading System Implementation",
+  "category": "skills",
+  "description": "Detailed guide for building a real-time player-to-player trading system with escrow, atomic transaction processing, validation, anti-fraud measures, and marketplace integration. Covers direct trades and global marketplace listings.",
+  "tags": ["trading", "escrow", "marketplace", "real-time", "validation", "anti-fraud", "settlement"],
+  "intents": [
+    "build trading system",
+    "implement marketplace",
+    "prevent trade fraud",
+    "handle escrow",
+    "real-time peer-to-peer trading",
+    "atomic transaction settlement",
+    "trade validation and verification",
+    "marketplace listings and bidding",
+    "anti-fraud for virtual item trades"
+  ],
+  "dependencies": ["anti-cheat", "virtual-economy"],
+  "anti_patterns": [
+    "client-side trade logic that can be tampered with",
+    "no escrow mechanism allowing players to back out after confirmation",
+    "skip validation of item ownership and trade eligibility",
+    "non-atomic settlement that can result in item duplication or loss",
+    "no rate limiting enabling automated farming",
+    "ignoring value disparity in trades facilitating real-money trading",
+    "no audit logging for dispute resolution",
+    "trusting client-submitted trade state without server verification"
+  ],
+  "implementation_steps": [
+    "Build the Trade Gateway as a WebSocket-based entry point managing real-time trade sessions with unique IDs and defined lifecycle states: initiated, proposed, confirmed, executing, completed, cancelled",
+    "Implement the Escrow Service to hold items and currency in a neutral server-side account during trade; remove items from player inventory and place in escrow before trade finalization to prevent either party from backing out after confirmation",
+    "Build the Validation Engine to verify trade eligibility including item ownership verification, trade lock checks, account restriction validation, and inventory capacity checks; run synchronously before any escrow operation",
+    "Implement the Settlement Engine to perform atomic swap of escrowed items between players using database transactions with row-level locking to guarantee consistency",
+    "Create the Audit Logger to record every trade event with full context (session ID, event type, player ID, details JSON, timestamp) for dispute resolution and fraud analysis",
+    "Implement the trade lifecycle: Initiation (Player A invites Player B, gateway creates session) → Proposal (both add items/currency, real-time broadcast) → Lock-in (each confirms their side, no modifications after confirmation) → Escrow Transfer (move all offered items to escrow, rollback if any transfer fails) → Settlement (distribute escrowed items atomically) → Completion (both receive items and trade receipt, session archived)",
+    "Design the database schema: trade_sessions (id, player_a_id, player_b_id, status, timestamps), trade_offers (id, session_id, player_id, item_id, quantity, currency_amount, confirmed), escrow_entries (id, session_id, player_id, item_id, quantity, state: pending/held/released/returned), trade_audit_log (id, session_id, event_type, player_id, details_json, timestamp)",
+    "Ensure all mutations occur within serializable database transactions to prevent race conditions like double-spending items across simultaneous trades",
+    "Build marketplace integration: listings (item + price, active until fulfilled or expired after 7 days), search/filter (indexed by item type, rarity, price, seller with full-text search), instant buy (atomic escrow-and-settle flow), optional auction/bidding (highest bid at close triggers settlement)",
+    "Implement anti-fraud measures: rate limiting (50 trades/hour, 10 concurrent sessions), value disparity detection (flag trades exceeding 10:1 ratio based on marketplace historical prices), new account restrictions (under 24h old or less than 5h playtime cannot trade high-value items), trade bans (moderator-issued), duplicate item detection (verify item provenance chains before escrow)",
+    "Implement error handling: 60-second reconnection window for disconnected players before trade cancellation and escrow return; overflow slots with 24-hour claim window for inventory-full situations; full rollback on any escrow-phase error to prevent item loss or duplication"
+  ],
+  "rules": [
+    "Server-side escrow is mandatory: items must be held in escrow before trade finalization to prevent either party from backing out after confirmation",
+    "All trade mutations must use serializable database transactions to prevent race conditions and double-spending",
+    "The Validation Engine must run synchronously before any escrow operation to verify item ownership, trade locks, account restrictions, and inventory capacity",
+    "Settlement must be atomic: the swap of escrowed items between players must succeed or fail as a whole unit",
+    "Audit logging is mandatory: every trade event must be recorded with full context for dispute resolution and fraud analysis",
+    "Rate limit trading activity: maximum 50 trades per hour and 10 concurrent trade sessions per player to prevent automated farming",
+    "Flag trades with value disparity exceeding 10:1 ratio for review based on marketplace historical prices",
+    "New accounts (under 24 hours old or fewer than 5 hours playtime) cannot initiate trades with high-value items",
+    "If a player disconnects during a trade, maintain the session for 60 seconds before cancellation and escrow return",
+    "If settlement fails due to inventory full, hold items in temporary overflow with 24-hour claim window",
+    "All errors during the escrow phase must trigger a full rollback to ensure no items are lost or duplicated",
+    "Duplicate item detection: verify item provenance chains before accepting items into escrow"
+  ],
+  "examples": [
+    {
+      "name": "Trade Lifecycle Flow",
+      "description": "Player A invites Player B → both add items and currency → both lock-in their offers → items moved to escrow → atomic settlement distributes items → both receive new items and trade receipt"
+    },
+    {
+      "name": "Marketplace Instant Buy",
+      "description": "Buyer purchases a listing which triggers an atomic escrow-and-settle flow identical to direct trade but without the proposal step, ensuring the same safety guarantees"
+    },
+    {
+      "name": "Anti-Fraud: Value Disparity Detection",
+      "description": "A trade where Player A offers items worth 1000 Gold and Player B offers items worth 50 Gold (20:1 ratio) is flagged for review since it exceeds the 10:1 threshold"
+    },
+    {
+      "name": "Error Handling: Disconnection Recovery",
+      "description": "Player disconnects mid-trade; session remains open for 60 seconds; if player reconnects, trade resumes; if not, trade is cancelled and all escrowed items are returned to original owners"
+    },
+    {
+      "name": "Database Schema: Serializable Transactions",
+      "description": "All mutations to trade_sessions, trade_offers, and escrow_entries tables occur within serializable database transactions to prevent double-spending an item across simultaneous trades"
+    }
+  ],
+  "references": ["anti-cheat", "virtual-economy", "event-driven"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

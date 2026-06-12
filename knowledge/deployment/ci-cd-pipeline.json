@@ -1,0 +1,91 @@
+{
+  "id": "ci-cd-pipeline",
+  "title": "CI/CD Pipeline Setup",
+  "category": "deployment",
+  "description": "Comprehensive guide for CI/CD pipeline using GitHub Actions with self-hosted runners, covering CI stage (build, lint, unit/integration tests, security scanning), artifact stage (multi-stage container builds, publishing, release notes), CD stage (staging deployment, production with manual approval, canary deployments), and quality gates.",
+  "tags": ["CI/CD", "pipeline", "automation", "testing", "deployment", "quality-gates", "container", "security-scanning"],
+  "intents": [
+    "setup CI/CD",
+    "build pipeline",
+    "deployment automation",
+    "quality gates",
+    "container build pipeline",
+    "security scanning in CI",
+    "canary deployment",
+    "blue-green deployment automation",
+    "GitHub Actions pipeline",
+    "integration test automation"
+  ],
+  "dependencies": ["deployment-sop"],
+  "anti_patterns": [
+    "no automated testing in the pipeline",
+    "skipping security scanning (SAST, dependency, container, secret detection)",
+    "deploying to production without manual approval gate",
+    "no quality gates allowing untested code to reach production",
+    "single-stage Docker builds including build dependencies in production image",
+    "no flaky test quarantine allowing intermittent failures to block the pipeline",
+    "ignoring pipeline failures on the main branch",
+    "no cache strategy causing slow build times"
+  ],
+  "implementation_steps": [
+    "Set up pipeline architecture using GitHub Actions: self-hosted runners for build jobs, cloud-hosted runners for lightweight operations; organize into CI Stage (build, test, lint, security) → Artifact Stage (container build, publish, tag) → CD Stage (deploy, verify, monitor, rollback)",
+    "Configure trigger conditions: push to feature branch → CI only (build, test, lint); PR to main → CI + Preview deploy; merge to main → full pipeline (build, test, lint, artifact, deploy to staging); git tag v* → release pipeline (build, test, lint, artifact, deploy to production); manual trigger → all stages with manual approval gates",
+    "Implement CI Build stage: TypeScript/Node.js with 'bun install && bun run build' (strict mode, incremental compilation), Go with 'go build -trimpath -ldflags=\"-s -w\"', Rust with 'cargo build --release'; cache artifacts using GitHub Actions cache keyed to lockfile hash (60-70% build time reduction on cache hit)",
+    "Implement CI Lint and Format: ESLint for TypeScript/JavaScript (warnings as errors in CI), Prettier format check (unformatted code fails), Go Vet/Clippy for Go/Rust (warning-as-error), Actionlint for GitHub Actions workflow validation; post lint results as inline PR comments via reviewdog",
+    "Implement CI Unit Tests: Vitest for TypeScript, go test for Go, cargo test for Rust; enforce coverage thresholds (80% for critical services, 70% for others); upload reports to Codecov; split tests across runners with timing-based partitioning; 30-second individual test timeout, 5-minute suite flagging",
+    "Implement CI Integration Tests: run against ephemeral Docker Compose environments; define service under test and dependencies (databases, caches, message queues); start Compose stack, wait for health checks, run test suite, tear down; tag separately (@integration) and run only on PRs and main merges",
+    "Implement CI Security Scanning: SAST via CodeQL on every PR (critical/high findings blocking); dependency scanning via Dependabot and Snyk (critical CVEs block, medium/low generate tickets); secret detection via Gitleaks (immediate failure + security incident); container scanning via Trivy for OS/library vulnerabilities before registry publish",
+    "Implement Artifact Stage - Container Build: multi-stage Dockerfiles optimized for minimal image size (60-80% reduction); build for linux/amd64 and linux/arm64 via Docker buildx; embed build timestamps and git commit hashes as image labels; run as non-root user (appuser, uid 1001)",
+    "Implement Artifact Stage - Publish: tag images with git SHA (short), branch name, and semantic version (for releases); push to GitHub Container Registry (ghcr.io); sign images using Cosign with keyless signing identity; verify signed images before deployment",
+    "Implement Artifact Stage - Release Notes: for tagged releases, collect all merged PRs since last tag, categorize by label (feature, bugfix, security, chore), generate markdown release notes from template, create GitHub Release with notes and attached artifacts",
+    "Implement CD Stage - Staging: every main merge auto-deploys to staging; update Kubernetes deployment manifest with new image tag; ArgoCD detects change and syncs staging namespace; rolling update (25% max unavailable, 25% max surge); post-deploy smoke tests; cross-reference CI integration test results",
+    "Implement CD Stage - Production: triggered by git tags with manual approval; present deployment summary (version, changes, test results, security scans, rollback instructions); authorized approver reviews and approves in GitHub Actions UI; proceed with blue-green deployment per Deployment SOP; auto-rollback on verification failure",
+    "Implement CD Stage - Canary Deployments: for high-risk changes, deploy to 5% of production; compare error rates, latency, and business metrics against baseline for 30 minutes; if acceptable, gradually increase to 25%, 50%, 100% with 15-minute observation at each step; auto-rollback on metric degradation at any step",
+    "Enforce quality gates: Build (zero compilation errors, blocking), Lint (zero errors/violations, blocking), Unit Tests (100% pass, coverage above threshold, blocking), Integration Tests (100% pass, blocking), SAST (zero critical/high, blocking), Dependency Scan (zero critical CVEs, blocking), Container Scan (zero critical CVEs in base, blocking), Smoke Tests (expected status codes, blocking post-deploy), Metric Baseline (error rate increase <0.1%, p99 latency increase <10%, blocking for production)",
+    "Set up monitoring and alerts: Grafana pipeline health dashboard (success rate, median duration, flaky test rates); main branch failures trigger immediate Slack notifications; flaky tests (>5% flake rate) quarantined with dedicated issue (must fix within one sprint, don't block pipeline); monthly reporting on MTTF, deployment frequency, change failure rate, MTTR"
+  ],
+  "rules": [
+    "CI feedback must be under 10 minutes for the build/test/lint cycle",
+    "Feature branch pushes trigger CI only; PRs trigger CI + preview; main merges trigger full pipeline to staging; tags trigger release to production",
+    "Build artifacts must be cached using GitHub Actions cache keyed to lockfile hash",
+    "ESLint warnings are treated as errors in CI; Prettier format check must pass",
+    "Unit test coverage thresholds: 80% for critical services, 70% for others; 100% pass rate required",
+    "Individual test timeout: 30 seconds; test suites exceeding 5 minutes flagged for optimization",
+    "Integration tests run only on PRs and main merges to reduce CI time on feature branches",
+    "SAST: critical and high-severity findings are blocking; dependency scanning: critical CVEs are blocking",
+    "Gitleaks secret detection triggers immediate pipeline failure and a security incident",
+    "Container images must use multi-stage builds; run as non-root user; built for multi-platform (amd64 + arm64)",
+    "Images must be signed with Cosign and verified before deployment",
+    "Staging deployments are automatic on every main merge via ArgoCD sync",
+    "Production deployments require manual approval from team lead or release manager",
+    "Canary deployments: start at 5%, 30-minute observation, then 25% → 50% → 100% with 15-minute windows",
+    "Automatic rollback on production verification failure or canary metric degradation",
+    "Quality gates are blocking: failure at any gate prevents progression to next stage",
+    "Flaky tests (>5% flake rate) are quarantined and must be fixed within one sprint",
+    "Main branch pipeline failures trigger immediate Slack notifications to the owning team",
+    "Monthly pipeline metrics reporting: mean time to feedback, deployment frequency, change failure rate, mean time to recovery"
+  ],
+  "examples": [
+    {
+      "name": "Multi-Stage Dockerfile",
+      "description": "Build stage: node:20-alpine, bun install, bun run build; Production stage: node:20-alpine, non-root user (appuser, uid 1001), copy only dist and node_modules from builder, expose 3000, run as appuser; achieves 60-80% image size reduction"
+    },
+    {
+      "name": "Quality Gate Enforcement",
+      "description": "PR submitted → Build succeeds → Lint finds 2 errors → Pipeline BLOCKED → Developer fixes lint issues → Re-run → Lint passes → Unit tests pass (82% coverage > 80% threshold) → Integration tests pass → SAST finds no critical issues → PR can be merged"
+    },
+    {
+      "name": "Canary Deployment Progression",
+      "description": "Tag v1.6.0 created → Production deployment approved → Deploy to 5% of instances → Monitor 30 minutes: error rate +0.02% (<0.1%), p99 latency +3% (<10%) → Increase to 25% → Monitor 15 minutes: metrics healthy → Increase to 50% → Monitor 15 minutes → Increase to 100% → Deployment complete"
+    },
+    {
+      "name": "Security Scanning Flow",
+      "description": "CodeQL SAST scan finds critical SQL injection → Pipeline BLOCKED → Developer fixes vulnerability → Re-scan passes → Dependabot finds critical CVE in dependency → Pipeline BLOCKED → Developer updates dependency → Container scan with Trivy verifies base image has zero critical CVEs → Pipeline proceeds"
+    }
+  ],
+  "references": ["deployment-sop", "incident-response"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "id": "event-driven",
+  "title": "Event-Driven Architecture",
+  "category": "architecture",
+  "description": "Architecture document for event-driven systems covering event design principles, Kafka-based event backbone, processing patterns (notification, state transfer, CQRS, event sourcing, saga), consistency guarantees, dead letter queues, and schema registry management.",
+  "tags": ["event-driven", "Kafka", "CQRS", "event-sourcing", "saga", "async", "DLQ", "schema-registry"],
+  "intents": [
+    "design event-driven system",
+    "implement CQRS",
+    "event sourcing",
+    "saga orchestration",
+    "event backbone with Kafka",
+    "schema registry setup",
+    "dead letter queue handling",
+    "event design principles",
+    "eventual consistency patterns",
+    "event-carried state transfer"
+  ],
+  "dependencies": ["microservices"],
+  "anti_patterns": [
+    "using events as commands (e.g., 'complete.trade' instead of 'trade.completed')",
+    "events that require callbacks to the source service for processing",
+    "modifying events after publication instead of publishing compensating events",
+    "breaking schema changes without versioning or new event types",
+    "ignoring event ordering within partition keys",
+    "no dead letter queue for failed event processing",
+    "non-idempotent event consumers that break on replay",
+    "embedding sensitive data in event payloads",
+    "no schema registry allowing incompatible event format changes"
+  ],
+  "implementation_steps": [
+    "Establish event design principles: events are facts not commands (e.g., 'trade.completed' not 'complete.trade'), self-contained (carry all data needed without callbacks), immutable (publish compensating events for corrections), versioned (backward-compatible schema evolution), and timestamped (both producer and processing timestamps)",
+    "Set up the Kafka event backbone: 5-broker cluster with 3-node ZooKeeper, NVMe storage per broker; organize topics by domain and entity using pattern '<domain>.<entity>.<event-type>' (e.g., 'inventory.item.acquired')",
+    "Configure topic partitioning: default 6 partitions for standard topics, 24 for high-throughput analytics topics; partition key typically userId to guarantee ordering per user; replication factor of 3 with min ISR of 2",
+    "Set retention policies: 7 days for standard topics, 30 days for audit topics, indefinite for event-sourced aggregates",
+    "Implement the Event Notification pattern: service publishes event to notify other services; consumers react independently with no expectation of response (e.g., notification service consumes trade.completed for push notifications)",
+    "Implement Event-Carried State Transfer: when a consumer needs data from another service but cannot call its API synchronously, include relevant state in the event; consumer maintains local materialized view (e.g., trading service includes item metadata in trade.completed events)",
+    "Implement CQRS: separate command side (processes writes, validates business rules, persists changes, emits events) from query side (consumes events, builds optimized read models, serves queries from materialized views with low latency); command side is source of truth, query side is eventually consistent",
+    "Implement Event Sourcing: store full sequence of events rather than current state; use Kafka topic with infinite retention as event store; derive aggregate state by replaying events; take snapshots every 100 events; support multiple projections and time-travel queries",
+    "Implement Saga Orchestration: orchestrator maintains state machine per saga instance; each step emits event upon completion which advances state machine; on step failure trigger compensating actions for all previously completed steps in reverse order; persist saga state durably for crash recovery",
+    "Establish consistency guarantees: strong consistency within a service via database transactions; in-order delivery within a partition key; eventual consistency across services (99th percentile convergence under 5 seconds); exactly-once processing via Kafka transactions and consumer idempotency keys",
+    "Configure Dead Letter Queue: events failing processing after 3 attempts route to DLQ topic '<domain>.<entity>.<event-type>.dlq'; monitor with dedicated alerting; operations triages daily and replays from DLQ after fixing underlying issue",
+    "Set up Confluent Schema Registry: enforce BACKWARD compatibility for all new schema versions; review schema changes as part of PR process; CI pipeline validates compatibility; embed schema IDs in Kafka messages for correct deserialization"
+  ],
+  "rules": [
+    "Events must represent facts that have already happened (e.g., 'trade.completed') not commands to perform actions (e.g., 'complete.trade')",
+    "Events must be self-contained: carry all data consumers need without requiring a callback to the source service",
+    "Events are immutable: never modify after publication; publish compensating events for corrections",
+    "Events must be versioned: include version number in schema; new fields are optional with defaults; existing fields are never removed or renamed; breaking changes require a new event type",
+    "Events must include both producer timestamp (when event occurred) and processing timestamp (when event was ingested)",
+    "Topic naming convention: '<domain>.<entity>.<event-type>' (e.g., 'inventory.item.acquired', 'trade.session.completed')",
+    "Partition key must be userId to guarantee ordering per user; cross-key ordering is not guaranteed",
+    "Replication factor of 3 for all topics with min ISR of 2 to ensure durability during broker failures",
+    "Event retention: 7 days standard, 30 days audit, indefinite for event-sourced aggregates",
+    "CQRS command side is the source of truth; query side is eventually consistent and can use different storage technology",
+    "Event sourcing snapshots every 100 events to reduce replay time",
+    "Saga compensating actions must execute in reverse order of completed steps",
+    "Saga state must be persisted durably for crash recovery and resume",
+    "Exactly-once processing: use Kafka transactions and consumer idempotency keys",
+    "99th percentile cross-service convergence time must be under 5 seconds under normal load",
+    "Failed events route to DLQ after 3 processing attempts; DLQ is triaged daily",
+    "Schema Registry: BACKWARD compatibility is required; CI validates compatibility; schema IDs embedded in Kafka messages"
+  ],
+  "examples": [
+    {
+      "name": "Event Notification Pattern",
+      "description": "Notification service consumes 'trade.completed' events to send push notifications to both traders, reacting independently with no expectation of a response"
+    },
+    {
+      "name": "Event-Carried State Transfer",
+      "description": "Trading service includes item metadata in 'trade.completed' events so analytics service can generate reports without calling the inventory service API"
+    },
+    {
+      "name": "CQRS Implementation",
+      "description": "Command side uses PostgreSQL for writes with business rule validation; query side consumes events and builds Elasticsearch materialized views for low-latency reads; each side scales independently"
+    },
+    {
+      "name": "Event Sourcing with Time Travel",
+      "description": "Trade aggregate state derived by replaying events from the beginning; snapshots every 100 events for performance; by replaying events up to a specific timestamp, reconstruct any aggregate state at any point in time for debugging and compliance"
+    },
+    {
+      "name": "Saga Orchestration - Trade Completion",
+      "description": "Orchestrator manages: trading-service emits 'trade.settlement.initiated' → inventory-service moves items and emits 'inventory.items.transferred' → economy-service adjusts currencies and emits 'economy.balance.adjusted' → trading-service emits 'trade.settlement.completed'; on failure, compensating events execute in reverse order"
+    }
+  ],
+  "references": ["microservices", "trading-system", "virtual-economy"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

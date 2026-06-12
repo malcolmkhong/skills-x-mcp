@@ -1,6 +1,6 @@
 // API: Get/Update/Delete individual knowledge document
 import { NextRequest, NextResponse } from 'next/server';
-import { getKnowledgeById, getKnowledgeBySlug, updateKnowledge, deleteKnowledge, hardDeleteKnowledge } from '@/lib/knowledge/database';
+import { getKnowledgeById, getKnowledgeBySlug, updateKnowledge, deleteKnowledge, hardDeleteKnowledge, parseDocumentFields } from '@/lib/knowledge/database';
 
 export async function GET(
   request: NextRequest,
@@ -20,11 +20,7 @@ export async function GET(
     }
     
     return NextResponse.json({ 
-      document: {
-        ...document,
-        embedding: undefined,
-        keywords: JSON.parse(document.keywords),
-      }
+      document: parseDocumentFields(document)
     });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
@@ -38,22 +34,24 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, category, description, keywords, markdownContent } = body;
+    const { title, category, description, tags, intents, dependencies, antiPatterns, implementationSteps, rules, examples, references } = body;
     
     const document = await updateKnowledge(id, {
       title,
       category,
       description,
-      keywords,
-      markdownContent,
+      tags,
+      intents,
+      dependencies,
+      antiPatterns,
+      implementationSteps,
+      rules,
+      examples,
+      references,
     });
     
     return NextResponse.json({ 
-      document: {
-        ...document,
-        embedding: undefined,
-        keywords: JSON.parse(document.keywords),
-      }
+      document: parseDocumentFields(document)
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

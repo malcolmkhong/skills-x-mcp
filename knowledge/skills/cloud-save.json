@@ -1,0 +1,78 @@
+{
+  "id": "cloud-save",
+  "title": "Cloud Save Implementation",
+  "category": "skills",
+  "description": "Comprehensive guide for implementing cloud save functionality with conflict resolution, offline support, and data synchronization across devices. Covers a three-tier architecture with local persistence, sync engine, and remote storage backend.",
+  "tags": ["cloud-save", "synchronization", "conflict-resolution", "offline", "persistence", "data-sync"],
+  "intents": [
+    "implement cloud save",
+    "sync data across devices",
+    "handle save conflicts",
+    "offline save support",
+    "cloud save architecture",
+    "conflict resolution for concurrent edits",
+    "data synchronization between local and remote",
+    "optimistic local writes with background sync"
+  ],
+  "dependencies": [],
+  "anti_patterns": [
+    "synchronous-only save that blocks the UI thread",
+    "no conflict resolution strategy for concurrent offline edits",
+    "trust client state as authoritative without server validation",
+    "transmitting full save payloads instead of deltas",
+    "ignoring offline scenarios and network failures",
+    "using last-write-wins without pluggable merge functions for structured data",
+    "no retry or backoff strategy for failed sync operations",
+    "storing unversioned save data without device identifiers",
+    "no integrity verification (checksums) for save data in transit"
+  ],
+  "implementation_steps": [
+    "Design the three-tier architecture: local persistence layer (IndexedDB for browser, SQLite for native), sync engine (bidirectional data flow, conflict detection/resolution), and remote storage backend (distributed key-value store with strong consistency)",
+    "Implement the SaveEntry data model with userId, saveKey (namespace for multiple save slots), data (JSON payload), version (monotonic counter), deviceId (origin device), timestamp (server-assigned ISO8601), and checksum (SHA256 integrity hash)",
+    "Build the version tracking system: increment version atomically on the server using compare-and-swap operations, tag each save entity with version number and device identifier to reconstruct chronological order of edits across offline devices",
+    "Implement conflict detection: server compares incoming version against stored version; if incoming version is not exactly one greater than stored version, flag a conflict",
+    "Implement automatic merge for structured data types: list appends merged by interleaving entries by timestamp, map updates merged field-by-field with type-specific strategies",
+    "Build manual conflict resolution UI: when automatic merge is not possible, present both versions to the user for selection or manual merge, then upload resolved version with new version number",
+    "Implement offline support with durable outbox: queue all write operations locally, serve reads from local store during offline periods, use Network Information API and service worker lifecycle events to detect connectivity changes and trigger sync",
+    "Implement error handling with exponential backoff: start at 1 second, cap at 5 minutes, add jitter to prevent thundering herd; after 10 consecutive failures enter degraded mode (serve local data, notify user); retry transient errors (timeout, 503) automatically; trigger re-authentication for permanent errors (401, 403)",
+    "Optimize performance with delta encoding (transmit only changed fields, up to 80% bandwidth reduction), gzip compression with 1 KB threshold, batching of operations within 5-second windows, and prefetching on app launch using access frequency heuristics"
+  ],
+  "rules": [
+    "Optimistic local writes with background sync: never block the UI on network operations",
+    "Per-entity version vectors for conflict detection: each save entry must have a monotonically increasing version number and device identifier",
+    "Server-assigned timestamps: the server is the source of truth for temporal ordering, not client clocks",
+    "Checksum verification on both upload and download to detect data corruption in transit",
+    "Atomic version increments using compare-and-swap on the server to prevent lost updates",
+    "Three-step conflict resolution: detection (version mismatch) → automatic merge (type-specific strategies) → manual resolution (user choice)",
+    "Durable outbox pattern for offline writes: all writes persist locally before being synced",
+    "Exponential backoff with jitter for retry: 1s initial, 5 min cap, prevent thundering herd",
+    "After 10 consecutive sync failures, enter degraded mode: serve local data and notify user of cloud sync unavailability",
+    "Delta encoding for bandwidth optimization: only transmit changed fields, not full payloads",
+    "Compression threshold: apply gzip only to payloads larger than 1 KB to avoid overhead on small saves",
+    "Batch multiple save operations within a 5-second window into a single upload request",
+    "No direct trust of client state: server validates all incoming data before persisting"
+  ],
+  "examples": [
+    {
+      "name": "SaveEntry Data Model",
+      "description": "A save entry with userId, saveKey ('profile', 'gameState', 'settings'), JSON data payload, monotonic version counter, device identifier, server-assigned ISO8601 timestamp, and SHA256 checksum for integrity verification"
+    },
+    {
+      "name": "Offline Sync Flow",
+      "description": "User edits save data while offline → writes queued in durable outbox → network restored → outbox flushed to server in order → conflict detected if version mismatch → automatic or manual resolution"
+    },
+    {
+      "name": "Conflict Resolution - Automatic Merge",
+      "description": "Two devices modify the same save key offline; on sync, list appends are interleaved by timestamp, map updates are merged field-by-field without user intervention"
+    },
+    {
+      "name": "Error Handling - Degraded Mode",
+      "description": "After 10 consecutive sync failures, system continues serving local data with user notification that cloud sync is unavailable; transient errors retried with backoff, permanent errors trigger re-auth flow"
+    }
+  ],
+  "references": ["trading-system", "event-driven", "anti-cheat"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

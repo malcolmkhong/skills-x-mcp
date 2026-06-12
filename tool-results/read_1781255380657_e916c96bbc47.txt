@@ -1,0 +1,663 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import { useTheme } from 'next-themes'
+     5→import { toast } from 'sonner'
+     6→import {
+     7→  LayoutDashboard, Database, Search, Upload, Wrench, Sun, Moon,
+     8→  ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Eye, X,
+     9→  RefreshCw, FileText, BarChart3, Activity, Clock, AlertCircle,
+    10→  CheckCircle2, Loader2, Zap, Brain, Shield, Server, Menu
+    11→} from 'lucide-react'
+    12→
+    13→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+    14→import { Button } from '@/components/ui/button'
+    15→import { Input } from '@/components/ui/input'
+    16→import { Label } from '@/components/ui/label'
+    17→import { Badge } from '@/components/ui/badge'
+    18→import { Separator } from '@/components/ui/separator'
+    19→import { Skeleton } from '@/components/ui/skeleton'
+    20→import { Textarea } from '@/components/ui/textarea'
+    21→import {
+    22→  Dialog, DialogContent, DialogDescription, DialogFooter,
+    23→  DialogHeader, DialogTitle,
+    24→} from '@/components/ui/dialog'
+    25→import {
+    26→  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    27→  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+    28→} from '@/components/ui/alert-dialog'
+    29→import {
+    30→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    31→} from '@/components/ui/select'
+    32→import {
+    33→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    34→} from '@/components/ui/table'
+    35→import {
+    36→  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
+    37→} from '@/components/ui/sheet'
+    38→import { ScrollArea } from '@/components/ui/scroll-area'
+    39→
+    40→// ─── Constants ────────────────────────────────────────────────────────────────
+    41→
+    42→const CATEGORIES = [
+    43→  'skills', 'sops', 'architecture', 'security', 'economy', 'deployment',
+    44→  'ui-standards', 'backend-standards', 'frontend-standards', 'game-economy',
+    45→  'trading', 'marketplace', 'anti-cheat', 'analytics', 'liveops', 'premium',
+    46→  'monetization', 'cloud-save', 'offline-sync',
+    47→] as const
+    48→
+    49→type Category = typeof CATEGORIES[number]
+    50→
+    51→const CATEGORY_COLORS: Record<string, string> = {
+    52→  'skills': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+    53→  'sops': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+    54→  'architecture': 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300',
+    55→  'security': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    56→  'economy': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
+    57→  'deployment': 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+    58→}
+    59→
+    60→const CATEGORY_BAR_COLORS: Record<string, string> = {
+    61→  'skills': '#10b981', 'sops': '#f59e0b', 'architecture': '#8b5cf6',
+    62→  'security': '#ef4444', 'economy': '#06b6d4', 'deployment': '#f97316',
+    63→  'ui-standards': '#ec4899', 'backend-standards': '#14b8a6',
+    64→  'frontend-standards': '#84cc16', 'game-economy': '#eab308',
+    65→  'trading': '#d946ef', 'marketplace': '#f43f5e', 'anti-cheat': '#dc2626',
+    66→  'analytics': '#0ea5e9', 'liveops': '#6366f1', 'premium': '#d97706',
+    67→  'monetization': '#22c55e', 'cloud-save': '#3b82f6', 'offline-sync': '#64748b',
+    68→}
+    69→
+    70→const MCP_TOOLS = [
+    71→  { name: 'search_knowledge', desc: 'Search all knowledge', params: ['query', 'limit?'] },
+    72→  { name: 'retrieve_knowledge', desc: 'Get document by slug', params: ['slug'] },
+    73→  { name: 'build_context', desc: 'Build AI context', params: ['query', 'maxDocuments?', 'maxTokenBudget?'] },
+    74→  { name: 'search_skills', desc: 'Search skills', params: ['query', 'limit?'] },
+    75→  { name: 'search_sops', desc: 'Search SOPs', params: ['query', 'limit?'] },
+    76→  { name: 'search_architecture', desc: 'Search architecture', params: ['query', 'limit?'] },
+    77→  { name: 'search_security', desc: 'Search security', params: ['query', 'limit?'] },
+    78→  { name: 'search_game_system', desc: 'Search game systems', params: ['query', 'limit?'] },
+    79→]
+    80→
+    81→const NAV_ITEMS = [
+    82→  { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+    83→  { id: 'knowledge' as const, label: 'Knowledge Base', icon: Database },
+    84→  { id: 'search' as const, label: 'Search & Retrieve', icon: Search },
+    85→  { id: 'ingest' as const, label: 'Ingest', icon: Upload },
+    86→  { id: 'mcp' as const, label: 'MCP Tools', icon: Wrench },
+    87→]
+    88→
+    89→type NavTab = typeof NAV_ITEMS[number]['id']
+    90→
+    91→// ─── Types ────────────────────────────────────────────────────────────────────
+    92→
+    93→interface KnowledgeDoc {
+    94→  id: string; slug: string; title: string; category: Category
+    95→  description: string; keywords: string[]; markdownContent: string
+    96→  version: number; accessCount: number; isActive: boolean; createdAt: string; updatedAt: string
+    97→}
+    98→
+    99→interface SearchResultItem {
+   100→  id: string; slug: string; title: string; category: Category
+   101→  description: string; score: number
+   102→  embeddingScore?: number; keywordScore?: number; categoryScore?: number; usageWeight?: number
+   103→}
+   104→
+   105→interface Stats {
+   106→  totalDocuments: number; documentsByCategory: Record<string, number>; totalRetrievals: number
+   107→  topAccessed: Array<{ id: string; slug: string; title: string; category: string; accessCount: number }>
+   108→  recentIngestions: Array<{
+   109→    id: string; operation: string; category: string | null
+   110→    documentsProcessed: number; status: string; startedAt: string; completedAt: string | null
+   111→  }>
+   112→}
+   113→
+   114→// ─── Helpers ──────────────────────────────────────────────────────────────────
+   115→
+   116→const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+   117→
+   118→function CategoryBadge({ category }: { category: string }) {
+   119→  return <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-medium ${CATEGORY_COLORS[category] || 'bg-gray-100 text-gray-800'}`}>{category}</Badge>
+   120→}
+   121→
+   122→async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+   123→  const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...options?.headers }, ...options })
+   124→  const data = await res.json()
+   125→  if (!res.ok) throw new Error(data.error || `API error ${res.status}`)
+   126→  return data
+   127→}
+   128→
+   129→// ─── Main App ─────────────────────────────────────────────────────────────────
+   130→
+   131→export default function DashboardPage() {
+   132→  const [activeTab, setActiveTab] = useState<NavTab>('overview')
+   133→  const [sidebarOpen, setSidebarOpen] = useState(true)
+   134→  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+   135→  const { resolvedTheme, setTheme } = useTheme()
+   136→
+   137→  const toggleTheme = useCallback(() => {
+   138→    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+   139→  }, [resolvedTheme, setTheme])
+   140→
+   141→  return (
+   142→    <div className="min-h-screen flex flex-col bg-background">
+   143→      <div className="flex flex-1 overflow-hidden">
+   144→        {/* Desktop Sidebar */}
+   145→        <aside className={`hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 ${sidebarOpen ? 'w-56' : 'w-14'}`}>
+   146→          <div className="p-3 border-b border-border">
+   147→            <div className="flex items-center gap-2">
+   148→              <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
+   149→                <Brain className="h-4 w-4 text-white" />
+   150→              </div>
+   151→              {sidebarOpen && <div><div className="font-bold text-xs leading-tight">IndustryX</div><div className="text-[9px] text-muted-foreground">Knowledge MCP Provider</div></div>}
+   152→            </div>
+   153→          </div>
+   154→          <nav className="flex-1 p-1.5 space-y-0.5">
+   155→            {NAV_ITEMS.map(item => {
+   156→              const Icon = item.icon
+   157→              const isActive = activeTab === item.id
+   158→              return (
+   159→                <button key={item.id} onClick={() => setActiveTab(item.id)}
+   160→                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground hover:bg-accent'} ${!sidebarOpen ? 'justify-center' : ''}`}>
+   161→                  <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-emerald-500' : ''}`} />
+   162→                  {sidebarOpen && <span>{item.label}</span>}
+   163→                </button>
+   164→              )
+   165→            })}
+   166→          </nav>
+   167→          <div className="p-1.5 border-t border-border space-y-1">
+   168→            <Button variant="ghost" size={sidebarOpen ? 'default' : 'icon'} className="w-full h-7 text-xs" onClick={toggleTheme} suppressHydrationWarning>
+   169→              {resolvedTheme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+   170→              {sidebarOpen && <span className="ml-1">{resolvedTheme === 'dark' ? 'Light' : 'Dark'}</span>}
+   171→            </Button>
+   172→            <Button variant="ghost" size="icon" className="w-full h-7" onClick={() => setSidebarOpen(!sidebarOpen)}>
+   173→              {sidebarOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+   174→            </Button>
+   175→          </div>
+   176→        </aside>
+   177→
+   178→        {/* Mobile Header */}
+   179→        <div className="md:hidden flex items-center gap-2 p-2 border-b border-border bg-card sticky top-0 z-10">
+   180→          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMobileSidebarOpen(true)}><Menu className="h-4 w-4" /></Button>
+   181→          <Brain className="h-4 w-4 text-emerald-500" />
+   182→          <span className="font-bold text-xs">IndustryX MCP</span>
+   183→        </div>
+   184→
+   185→        {/* Mobile Sidebar */}
+   186→        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+   187→          <SheetContent side="left" className="w-56 p-0">
+   188→            <SheetHeader className="p-3 border-b"><SheetTitle className="text-sm">Navigation</SheetTitle></SheetHeader>
+   189→            <nav className="p-2 space-y-1">
+   190→              {NAV_ITEMS.map(item => {
+   191→                const Icon = item.icon
+   192→                return <button key={item.id} onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false) }}
+   193→                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent">
+   194→                  <Icon className="h-3.5 w-3.5" /><span>{item.label}</span>
+   195→                </button>
+   196→              })}
+   197→            </nav>
+   198→          </SheetContent>
+   199→        </Sheet>
+   200→
+   201→        {/* Main Content */}
+   202→        <main className="flex-1 overflow-y-auto">
+   203→          <div className="p-4 md:p-6 max-w-6xl mx-auto">
+   204→            {activeTab === 'overview' && <OverviewTab />}
+   205→            {activeTab === 'knowledge' && <KnowledgeTab />}
+   206→            {activeTab === 'search' && <SearchTab />}
+   207→            {activeTab === 'ingest' && <IngestTab />}
+   208→            {activeTab === 'mcp' && <MCPToolsTab />}
+   209→          </div>
+   210→        </main>
+   211→      </div>
+   212→
+   213→      <footer className="mt-auto border-t border-border bg-card px-4 py-2">
+   214→        <div className="max-w-6xl mx-auto flex items-center justify-between text-[10px] text-muted-foreground">
+   215→          <span>IndustryX Knowledge MCP Provider &copy; {new Date().getFullYear()}</span>
+   216→          <span className="flex items-center gap-1"><Server className="h-2.5 w-2.5" /> Skills Provider v1.0</span>
+   217→        </div>
+   218→      </footer>
+   219→    </div>
+   220→  )
+   221→}
+   222→
+   223→// ─── Overview Tab ─────────────────────────────────────────────────────────────
+   224→
+   225→function OverviewTab() {
+   226→  const [stats, setStats] = useState<Stats | null>(null)
+   227→  const [loading, setLoading] = useState(true)
+   228→
+   229→  const fetchStats = useCallback(async () => {
+   230→    setLoading(true)
+   231→    try { setStats(await apiFetch<Stats>('/api/knowledge/stats')) }
+   232→    catch { toast.error('Failed to load stats') }
+   233→    finally { setLoading(false) }
+   234→  }, [])
+   235→
+   236→  useEffect(() => { fetchStats() }, [fetchStats])
+   237→
+   238→  const chartData = stats ? Object.entries(stats.documentsByCategory).map(([name, count]) => ({ name, count, fill: CATEGORY_BAR_COLORS[name] || '#6b7280' })).sort((a, b) => b.count - a.count) : []
+   239→
+   240→  return (
+   241→    <div className="space-y-4">
+   242→      <div className="flex items-center justify-between">
+   243→        <div><h1 className="text-xl font-bold">Dashboard</h1><p className="text-muted-foreground text-xs">MCP Skills Provider Overview</p></div>
+   244→        <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}><RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />Refresh</Button>
+   245→      </div>
+   246→
+   247→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   248→        {[
+   249→          { title: 'Documents', value: stats?.totalDocuments ?? 0, icon: FileText, color: 'bg-emerald-500/10 text-emerald-600' },
+   250→          { title: 'Categories', value: stats ? Object.keys(stats.documentsByCategory).length : 0, icon: BarChart3, color: 'bg-violet-500/10 text-violet-600' },
+   251→          { title: 'Retrievals', value: stats?.totalRetrievals ?? 0, icon: Activity, color: 'bg-amber-500/10 text-amber-600' },
+   252→          { title: 'MCP Tools', value: 8, icon: Wrench, color: 'bg-cyan-500/10 text-cyan-600' },
+   253→        ].map(s => (
+   254→          <Card key={s.title}>
+   255→            <CardContent className="pt-4 pb-3 px-4">
+   256→              <div className="flex items-center justify-between">
+   257→                <div><p className="text-[10px] text-muted-foreground">{s.title}</p>{loading ? <Skeleton className="h-6 w-10 mt-0.5" /> : <p className="text-lg font-bold">{s.value.toLocaleString()}</p>}</div>
+   258→                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${s.color}`}><s.icon className="h-4 w-4" /></div>
+   259→              </div>
+   260→            </CardContent>
+   261→          </Card>
+   262→        ))}
+   263→      </div>
+   264→
+   265→      {/* Bar Chart */}
+   266→      <Card>
+   267→        <CardHeader className="pb-2"><CardTitle className="text-sm">Documents by Category</CardTitle></CardHeader>
+   268→        <CardContent>
+   269→          {loading ? <Skeleton className="h-40 w-full" /> : chartData.length === 0 ? <div className="h-40 flex items-center justify-center text-muted-foreground text-xs">No documents yet</div> : (
+   270→            <div className="space-y-1.5">
+   271→              {chartData.map(e => {
+   272→                const max = Math.max(...chartData.map(d => d.count), 1)
+   273→                return <div key={e.name} className="flex items-center gap-2">
+   274→                  <div className="w-24 text-[10px] text-muted-foreground truncate text-right">{e.name}</div>
+   275→                  <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${(e.count / max) * 100}%`, backgroundColor: e.fill }} /></div>
+   276→                  <div className="w-6 text-[10px] font-medium text-right">{e.count}</div>
+   277→                </div>
+   278→              })}
+   279→            </div>
+   280→          )}
+   281→        </CardContent>
+   282→      </Card>
+   283→
+   284→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+   285→        <Card>
+   286→          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><Zap className="h-3.5 w-3.5 text-amber-500" />Top Accessed</CardTitle></CardHeader>
+   287→          <CardContent>
+   288→            {loading ? <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}</div> : (
+   289→              <ScrollArea className="max-h-48">
+   290→                <div className="space-y-1">
+   291→                  {stats?.topAccessed.map(doc => (
+   292→                    <div key={doc.id} className="flex items-center justify-between p-1.5 rounded-md hover:bg-accent text-xs">
+   293→                      <div className="min-w-0 flex-1 mr-2"><div className="font-medium truncate">{doc.title}</div><div className="text-[10px] text-muted-foreground">{doc.slug}</div></div>
+   294→                      <div className="flex items-center gap-1.5 shrink-0"><CategoryBadge category={doc.category} /><Badge variant="secondary" className="text-[10px]">{doc.accessCount}</Badge></div>
+   295→                    </div>
+   296→                  ))}
+   297→                </div>
+   298→              </ScrollArea>
+   299→            )}
+   300→          </CardContent>
+   301→        </Card>
+   302→        <Card>
+   303→          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-sky-500" />Ingestion Logs</CardTitle></CardHeader>
+   304→          <CardContent>
+   305→            {loading ? <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}</div> : (
+   306→              <ScrollArea className="max-h-48">
+   307→                <div className="space-y-1">
+   308→                  {stats?.recentIngestions.map(ing => (
+   309→                    <div key={ing.id} className="flex items-center justify-between p-1.5 rounded-md hover:bg-accent text-xs">
+   310→                      <div><div className="font-medium">{ing.operation}</div><div className="text-[10px] text-muted-foreground">{ing.category || 'All'} &middot; {formatDate(ing.startedAt)}</div></div>
+   311→                      <div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[10px]">{ing.documentsProcessed} docs</Badge>
+   312→                        {ing.status === 'completed' ? <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px]">Done</Badge> : <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px]">{ing.status}</Badge>}
+   313→                      </div>
+   314→                    </div>
+   315→                  ))}
+   316→                </div>
+   317→              </ScrollArea>
+   318→            )}
+   319→          </CardContent>
+   320→        </Card>
+   321→      </div>
+   322→    </div>
+   323→  )
+   324→}
+   325→
+   326→// ─── Knowledge Tab ────────────────────────────────────────────────────────────
+   327→
+   328→function KnowledgeTab() {
+   329→  const [documents, setDocuments] = useState<KnowledgeDoc[]>([])
+   330→  const [loading, setLoading] = useState(true)
+   331→  const [categoryFilter, setCategoryFilter] = useState('all')
+   332→  const [selectedDoc, setSelectedDoc] = useState<KnowledgeDoc | null>(null)
+   333→  const [deleteDoc, setDeleteDoc] = useState<KnowledgeDoc | null>(null)
+   334→
+   335→  const fetchDocs = useCallback(async () => {
+   336→    setLoading(true)
+   337→    try {
+   338→      const cat = categoryFilter !== 'all' ? categoryFilter : ''
+   339→      const data = await apiFetch<{ documents: KnowledgeDoc[] }>(`/api/knowledge${cat ? `?category=${cat}` : ''}`)
+   340→      setDocuments(data.documents)
+   341→    } catch { toast.error('Failed to load documents') }
+   342→    finally { setLoading(false) }
+   343→  }, [categoryFilter])
+   344→
+   345→  useEffect(() => { fetchDocs() }, [fetchDocs])
+   346→
+   347→  return (
+   348→    <div className="space-y-4">
+   349→      <div className="flex items-center justify-between flex-wrap gap-2">
+   350→        <div><h1 className="text-xl font-bold">Knowledge Base</h1><p className="text-muted-foreground text-xs">{documents.length} documents</p></div>
+   351→        <div className="flex items-center gap-2">
+   352→          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+   353→            <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
+   354→            <SelectContent>
+   355→              <SelectItem value="all">All Categories</SelectItem>
+   356→              {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+   357→            </SelectContent>
+   358→          </Select>
+   359→          <Button variant="outline" size="sm" onClick={fetchDocs}><RefreshCw className="h-3 w-3 mr-1" />Refresh</Button>
+   360→        </div>
+   361→      </div>
+   362→
+   363→      {loading ? <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div> : (
+   364→        <Card>
+   365→          <CardContent className="p-0">
+   366→            <Table>
+   367→              <TableHeader><TableRow>
+   368→                <TableHead className="text-xs">Title</TableHead>
+   369→                <TableHead className="text-xs">Category</TableHead>
+   370→                <TableHead className="text-xs hidden md:table-cell">Version</TableHead>
+   371→                <TableHead className="text-xs hidden md:table-cell">Access</TableHead>
+   372→                <TableHead className="text-xs">Actions</TableHead>
+   373→              </TableRow></TableHeader>
+   374→              <TableBody>
+   375→                {documents.map(doc => (
+   376→                  <TableRow key={doc.id}>
+   377→                    <TableCell className="text-xs"><div className="font-medium">{doc.title}</div><div className="text-[10px] text-muted-foreground">{doc.slug}</div></TableCell>
+   378→                    <TableCell><CategoryBadge category={doc.category} /></TableCell>
+   379→                    <TableCell className="text-xs hidden md:table-cell">v{doc.version}</TableCell>
+   380→                    <TableCell className="text-xs hidden md:table-cell">{doc.accessCount}</TableCell>
+   381→                    <TableCell>
+   382→                      <div className="flex gap-1">
+   383→                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedDoc(doc)}><Eye className="h-3 w-3" /></Button>
+   384→                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDeleteDoc(doc)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+   385→                      </div>
+   386→                    </TableCell>
+   387→                  </TableRow>
+   388→                ))}
+   389→              </TableBody>
+   390→            </Table>
+   391→          </CardContent>
+   392→        </Card>
+   393→      )}
+   394→
+   395→      {/* Document Detail */}
+   396→      <Sheet open={!!selectedDoc} onOpenChange={() => setSelectedDoc(null)}>
+   397→        <SheetContent className="w-full md:w-[500px] overflow-y-auto">
+   398→          <SheetHeader><SheetTitle className="text-sm">{selectedDoc?.title}</SheetTitle><SheetDescription className="text-xs">{selectedDoc?.category} &middot; {selectedDoc?.slug}</SheetDescription></SheetHeader>
+   399→          {selectedDoc && (
+   400→            <div className="mt-4 space-y-3">
+   401→              <p className="text-xs text-muted-foreground">{selectedDoc.description}</p>
+   402→              {selectedDoc.keywords.length > 0 && <div className="flex flex-wrap gap-1">{selectedDoc.keywords.map((kw, i) => <Badge key={i} variant="secondary" className="text-[10px]">{kw}</Badge>)}</div>}
+   403→              <Separator />
+   404→              <ScrollArea className="h-[60vh]">
+   405→                <pre className="text-[11px] whitespace-pre-wrap font-mono leading-relaxed bg-muted/30 p-3 rounded-lg">{selectedDoc.markdownContent}</pre>
+   406→              </ScrollArea>
+   407→            </div>
+   408→          )}
+   409→        </SheetContent>
+   410→      </Sheet>
+   411→
+   412→      {/* Delete Confirmation */}
+   413→      <AlertDialog open={!!deleteDoc} onOpenChange={() => setDeleteDoc(null)}>
+   414→        <AlertDialogContent>
+   415→          <AlertDialogHeader><AlertDialogTitle className="text-sm">Delete &ldquo;{deleteDoc?.title}&rdquo;?</AlertDialogTitle>
+   416→            <AlertDialogDescription className="text-xs">This will soft-delete the document. It can be restored later.</AlertDialogDescription>
+   417→          </AlertDialogHeader>
+   418→          <AlertDialogFooter>
+   419→            <AlertDialogCancel className="text-xs">Cancel</AlertDialogCancel>
+   420→            <AlertDialogAction className="text-xs" onClick={async () => {
+   421→              if (!deleteDoc) return
+   422→              try { await fetch(`/api/knowledge/${deleteDoc.id}`, { method: 'DELETE' }); toast.success('Deleted'); fetchDocs() }
+   423→              catch { toast.error('Delete failed') }
+   424→              setDeleteDoc(null)
+   425→            }}>Delete</AlertDialogAction>
+   426→          </AlertDialogFooter>
+   427→        </AlertDialogContent>
+   428→      </AlertDialog>
+   429→    </div>
+   430→  )
+   431→}
+   432→
+   433→// ─── Search Tab ───────────────────────────────────────────────────────────────
+   434→
+   435→function SearchTab() {
+   436→  const [query, setQuery] = useState('')
+   437→  const [results, setResults] = useState<SearchResultItem[]>([])
+   438→  const [searching, setSearching] = useState(false)
+   439→  const [contextResult, setContextResult] = useState<{ context: string; documentsUsed: number; totalTokens: number } | null>(null)
+   440→
+   441→  const doSearch = async () => {
+   442→    if (!query.trim()) return
+   443→    setSearching(true)
+   444→    try {
+   445→      const data = await apiFetch<{ results: SearchResultItem[] }>('/api/knowledge/search', {
+   446→        method: 'POST', body: JSON.stringify({ query, limit: 5 }),
+   447→      })
+   448→      setResults(data.results)
+   449→    } catch { toast.error('Search failed') }
+   450→    finally { setSearching(false) }
+   451→  }
+   452→
+   453→  const buildContext = async () => {
+   454→    if (!query.trim()) return
+   455→    setSearching(true)
+   456→    try {
+   457→      const data = await apiFetch<{ context: string; documentsUsed: number; totalTokens: number }>('/api/knowledge/context', {
+   458→        method: 'POST', body: JSON.stringify({ query, maxDocuments: 5, maxTokenBudget: 5000 }),
+   459→      })
+   460→      setContextResult(data)
+   461→    } catch { toast.error('Context build failed') }
+   462→    finally { setSearching(false) }
+   463→  }
+   464→
+   465→  return (
+   466→    <div className="space-y-4">
+   467→      <div><h1 className="text-xl font-bold">Search & Retrieve</h1><p className="text-muted-foreground text-xs">Test hybrid retrieval and context building</p></div>
+   468→
+   469→      <Card>
+   470→        <CardContent className="pt-4 space-y-3">
+   471→          <div className="flex gap-2">
+   472→            <Input placeholder="Search knowledge..." value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && doSearch()} className="text-xs h-8" />
+   473→            <Button size="sm" onClick={doSearch} disabled={searching}>{searching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}Search</Button>
+   474→            <Button size="sm" variant="outline" onClick={buildContext} disabled={searching}><Brain className="h-3 w-3 mr-1" />Context</Button>
+   475→          </div>
+   476→        </CardContent>
+   477→      </Card>
+   478→
+   479→      {results.length > 0 && (
+   480→        <div className="space-y-2">
+   481→          <h3 className="text-sm font-medium">Search Results</h3>
+   482→          {results.map(r => (
+   483→            <Card key={r.id} className="border-l-4" style={{ borderLeftColor: CATEGORY_BAR_COLORS[r.category] || '#6b7280' }}>
+   484→              <CardContent className="py-2 px-3">
+   485→                <div className="flex items-start justify-between gap-2">
+   486→                  <div><div className="text-xs font-medium">{r.title}</div><div className="text-[10px] text-muted-foreground">{r.description}</div></div>
+   487→                  <div className="flex items-center gap-1.5 shrink-0"><CategoryBadge category={r.category} /><Badge variant="secondary" className="text-[10px]">{r.score.toFixed(3)}</Badge></div>
+   488→                </div>
+   489→              </CardContent>
+   490→            </Card>
+   491→          ))}
+   492→        </div>
+   493→      )}
+   494→
+   495→      {contextResult && (
+   496→        <Card>
+   497→          <CardHeader className="pb-2">
+   498→            <CardTitle className="text-sm">Assembled Context</CardTitle>
+   499→            <CardDescription className="text-[10px]">{contextResult.documentsUsed} docs &middot; ~{contextResult.totalTokens} tokens</CardDescription>
+   500→          </CardHeader>
+   501→          <CardContent>
+   502→            <ScrollArea className="h-64">
+   503→              <pre className="text-[10px] whitespace-pre-wrap font-mono bg-muted/30 p-3 rounded-lg">{contextResult.context}</pre>
+   504→            </ScrollArea>
+   505→          </CardContent>
+   506→        </Card>
+   507→      )}
+   508→    </div>
+   509→  )
+   510→}
+   511→
+   512→// ─── Ingest Tab ───────────────────────────────────────────────────────────────
+   513→
+   514→function IngestTab() {
+   515→  const [ingesting, setIngesting] = useState(false)
+   516→  const [result, setResult] = useState<{ totalProcessed: number; created: number; updated: number; skipped: number } | null>(null)
+   517→  const [rebuilding, setRebuilding] = useState(false)
+   518→
+   519→  const doIngest = async (category?: string) => {
+   520→    setIngesting(true)
+   521→    try {
+   522→      const data = await apiFetch<{ totalProcessed: number; created: number; updated: number; skipped: number }>('/api/knowledge/ingest', {
+   523→        method: 'POST', body: JSON.stringify({ category: category || undefined }),
+   524→      })
+   525→      setResult(data)
+   526→      toast.success(`Ingested ${data.totalProcessed} docs (${data.created} new, ${data.updated} updated)`)
+   527→    } catch { toast.error('Ingestion failed') }
+   528→    finally { setIngesting(false) }
+   529→  }
+   530→
+   531→  const doRebuild = async () => {
+   532→    setRebuilding(true)
+   533→    try {
+   534→      const data = await apiFetch<{ count: number }>('/api/knowledge/rebuild', { method: 'POST' })
+   535→      toast.success(`Rebuilt ${data.count} embeddings`)
+   536→    } catch { toast.error('Rebuild failed') }
+   537→    finally { setRebuilding(false) }
+   538→  }
+   539→
+   540→  return (
+   541→    <div className="space-y-4">
+   542→      <div><h1 className="text-xl font-bold">Knowledge Ingestion</h1><p className="text-muted-foreground text-xs">Scan and index markdown knowledge files</p></div>
+   543→
+   544→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   545→        <Card>
+   546→          <CardHeader className="pb-2"><CardTitle className="text-sm">Full Reindex</CardTitle><CardDescription className="text-[10px]">Scan all knowledge directories</CardDescription></CardHeader>
+   547→          <CardContent><Button size="sm" onClick={() => doIngest()} disabled={ingesting}>{ingesting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}Ingest All</Button></CardContent>
+   548→        </Card>
+   549→        <Card>
+   550→          <CardHeader className="pb-2"><CardTitle className="text-sm">Rebuild Embeddings</CardTitle><CardDescription className="text-[10px]">Regenerate all vector embeddings</CardDescription></CardHeader>
+   551→          <CardContent><Button size="sm" variant="outline" onClick={doRebuild} disabled={rebuilding}>{rebuilding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}Rebuild</Button></CardContent>
+   552→        </Card>
+   553→      </div>
+   554→
+   555→      <Card>
+   556→        <CardHeader className="pb-2"><CardTitle className="text-sm">Category Ingestion</CardTitle></CardHeader>
+   557→        <CardContent className="flex flex-wrap gap-2">
+   558→          {CATEGORIES.map(c => <Button key={c} variant="outline" size="sm" className="text-[10px] h-6" onClick={() => doIngest(c)} disabled={ingesting}>{c}</Button>)}
+   559→        </CardContent>
+   560→      </Card>
+   561→
+   562→      {result && (
+   563→        <Card>
+   564→          <CardHeader className="pb-2"><CardTitle className="text-sm">Last Ingestion Result</CardTitle></CardHeader>
+   565→          <CardContent>
+   566→            <div className="grid grid-cols-4 gap-2 text-center">
+   567→              {[
+   568→                { label: 'Processed', value: result.totalProcessed, color: 'text-foreground' },
+   569→                { label: 'Created', value: result.created, color: 'text-emerald-600' },
+   570→                { label: 'Updated', value: result.updated, color: 'text-amber-600' },
+   571→                { label: 'Skipped', value: result.skipped, color: 'text-muted-foreground' },
+   572→              ].map(s => <div key={s.label}><div className={`text-lg font-bold ${s.color}`}>{s.value}</div><div className="text-[10px] text-muted-foreground">{s.label}</div></div>)}
+   573→            </div>
+   574→          </CardContent>
+   575→        </Card>
+   576→      )}
+   577→    </div>
+   578→  )
+   579→}
+   580→
+   581→// ─── MCP Tools Tab ────────────────────────────────────────────────────────────
+   582→
+   583→function MCPToolsTab() {
+   584→  const [selectedTool, setSelectedTool] = useState(MCP_TOOLS[0])
+   585→  const [queryInput, setQueryInput] = useState('')
+   586→  const [slugInput, setSlugInput] = useState('')
+   587→  const [limitInput, setLimitInput] = useState('5')
+   588→  const [executing, setExecuting] = useState(false)
+   589→  const [result, setResult] = useState('')
+   590→
+   591→  const executeMCPTool = async () => {
+   592→    setExecuting(true)
+   593→    setResult('')
+   594→    try {
+   595→      let body: Record<string, unknown>
+   596→      if (selectedTool.name === 'retrieve_knowledge') {
+   597→        body = { slug: slugInput }
+   598→      } else {
+   599→        body = { query: queryInput, limit: parseInt(limitInput) || 5 }
+   600→        if (selectedTool.name === 'build_context') {
+   601→          body = { query: queryInput, maxDocuments: parseInt(limitInput) || 5, maxTokenBudget: 5000 }
+   602→        }
+   603→        if (selectedTool.name === 'search_skills') body = { ...body, category: 'skills' }
+   604→        if (selectedTool.name === 'search_sops') body = { ...body, category: 'sops' }
+   605→        if (selectedTool.name === 'search_architecture') body = { ...body, category: 'architecture' }
+   606→        if (selectedTool.name === 'search_security') body = { ...body, category: 'security' }
+   607→      }
+   608→
+   609→      let endpoint = '/api/knowledge/search'
+   610→      if (selectedTool.name === 'retrieve_knowledge') endpoint = `/api/knowledge/${slugInput}`
+   611→      if (selectedTool.name === 'build_context') endpoint = '/api/knowledge/context'
+   612→
+   613→      const method = selectedTool.name === 'retrieve_knowledge' ? 'GET' : 'POST'
+   614→      const data = await apiFetch<unknown>(endpoint, { method, body: method === 'POST' ? body : undefined })
+   615→      setResult(JSON.stringify(data, null, 2))
+   616→      toast.success('Tool executed successfully')
+   617→    } catch (e) { setResult(`Error: ${e instanceof Error ? e.message : 'Unknown'}`); toast.error('Execution failed') }
+   618→    finally { setExecuting(false) }
+   619→  }
+   620→
+   621→  return (
+   622→    <div className="space-y-4">
+   623→      <div><h1 className="text-xl font-bold">MCP Tools</h1><p className="text-muted-foreground text-xs">Test MCP tool calls that AI agents would use</p></div>
+   624→
+   625→      <Card>
+   626→        <CardHeader className="pb-2">
+   627→          <CardTitle className="text-sm">Select Tool</CardTitle>
+   628→          <div className="flex flex-wrap gap-1.5 mt-2">
+   629→            {MCP_TOOLS.map(t => (
+   630→              <Button key={t.name} variant={selectedTool.name === t.name ? 'default' : 'outline'} size="sm" className="text-[10px] h-6"
+   631→                onClick={() => setSelectedTool(t)}>{t.name}</Button>
+   632→            ))}
+   633→          </div>
+   634→        </CardHeader>
+   635→        <CardContent className="space-y-3">
+   636→          <p className="text-xs text-muted-foreground">{selectedTool.desc}</p>
+   637→
+   638→          {selectedTool.name !== 'retrieve_knowledge' && (
+   639→            <div><Label className="text-xs">Query</Label><Input placeholder="Enter search query..." value={queryInput} onChange={e => setQueryInput(e.target.value)} className="text-xs h-8 mt-1" /></div>
+   640→          )}
+   641→          {selectedTool.name === 'retrieve_knowledge' && (
+   642→            <div><Label className="text-xs">Slug</Label><Input placeholder="e.g., cloud-save" value={slugInput} onChange={e => setSlugInput(e.target.value)} className="text-xs h-8 mt-1" /></div>
+   643→          )}
+   644→          <div><Label className="text-xs">Limit</Label><Input type="number" value={limitInput} onChange={e => setLimitInput(e.target.value)} className="text-xs h-8 mt-1 w-20" /></div>
+   645→
+   646→          <Button size="sm" onClick={executeMCPTool} disabled={executing}>
+   647→            {executing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}Execute {selectedTool.name}
+   648→          </Button>
+   649→        </CardContent>
+   650→      </Card>
+   651→
+   652→      {result && (
+   653→        <Card>
+   654→          <CardHeader className="pb-2"><CardTitle className="text-sm">Result</CardTitle></CardHeader>
+   655→          <CardContent>
+   656→            <ScrollArea className="h-72"><pre className="text-[10px] whitespace-pre-wrap font-mono">{result}</pre></ScrollArea>
+   657→          </CardContent>
+   658→        </Card>
+   659→      )}
+   660→    </div>
+   661→  )
+   662→}
+   663→

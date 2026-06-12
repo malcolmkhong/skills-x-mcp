@@ -1,0 +1,90 @@
+{
+  "id": "virtual-economy",
+  "title": "Virtual Economy Design",
+  "category": "economy",
+  "description": "Design document for the virtual economy covering a three-currency system (Gold, Gems, Reputation Tokens), economic flow model with faucets and sinks, inflation control via dynamic sink adjustment and faucet throttling, marketplace economics with tax-based sinks, and economic monitoring KPIs (M2, velocity, Gini coefficient, faucet-to-sink ratio).",
+  "tags": ["economy", "currency", "inflation", "balance", "virtual-goods", "faucet", "sink", "marketplace"],
+  "intents": [
+    "design virtual economy",
+    "control inflation",
+    "balance economy",
+    "currency system",
+    "faucet and sink design",
+    "economic monitoring",
+    "marketplace economics",
+    "dynamic pricing",
+    "wealth distribution balance",
+    "economic KPIs"
+  ],
+  "dependencies": ["monetization", "trading-system"],
+  "anti_patterns": [
+    "unlimited currency generation without corresponding sinks leading to hyperinflation",
+    "allowing currency conversion between primary and premium currencies (pay-to-win)",
+    "fixed sink costs that don't adjust to economic conditions",
+    "no wealth cap allowing extreme accumulation by few players",
+    "ignoring faucet-to-sink ratio causing persistent inflation or deflation",
+    "no Gini coefficient monitoring allowing extreme wealth inequality",
+    "flat marketplace tax that doesn't scale with transaction volume",
+    "player-to-player trades with no tax sink removing currency from economy"
+  ],
+  "implementation_steps": [
+    "Design the three-currency system: Gold (primary, earned via gameplay for everyday transactions), Gems (premium, real-money purchase for cosmetics and convenience, never competitive advantage), Reputation Tokens (secondary, faction-specific activities for exclusive items); enforce no currency conversion between types",
+    "Implement Gold faucets calibrated to target average income per hour: Main Quest 500-800 Gold/hr (front-loaded), Side Quests 300-500 (repeatable with diminishing returns), Dungeon Runs 400-600 (scales with difficulty), Crafting & Gathering 200-400 (market-dependent), PvP Matches 200-350 (fixed rewards), Daily Login 50-150 (increases with consecutive days); average player earns ~400 Gold/hr active play; dedicated player (20+ hrs/week) affords top-tier upgrade every 2-3 weeks",
+    "Design Gold sinks in three categories: Mandatory (40% of sink volume - equipment repairs, fast travel, basic consumables ensuring baseline outflow), Optional (45% - equipment upgrades, crafting, housing customization for meaningful progression choices), Luxury (15% - rare cosmetic vendor items, prestige housing, social features removing excess Gold without gating gameplay)",
+    "Implement Gems as premium currency: acquisition via in-app purchase, seasonal battle pass tiers, rare in-game events (limited quantities); expenditure on cosmetic skins, emotes, battle pass upgrades, inventory expansion, accelerated timers; hard design constraint: Gems must NEVER provide a competitive advantage",
+    "Implement Reputation Tokens: earned through faction quests, territory control contributions, faction PvP events; spent on faction-specific equipment, mounts, titles, and crafting recipes; creates parallel economic tracks encouraging diverse gameplay",
+    "Implement dynamic sink adjustment for inflation control: when Gold supply grows faster than target (2% per month), activate vendor price increases up to 20%, repair costs scaling with average player wealth percentile, luxury item prices with built-in inflation index adjusting weekly",
+    "Implement faucet throttling: when Gold supply exceeds target threshold, reduce quest rewards up to 15% via dynamic modifier, decrease high-value item drop rates temporarily, replace daily login Gold bonuses with reputation tokens; adjustments are transparent—UI shows base values, modifiers applied server-side",
+    "Implement currency caps: soft-cap player wallets at 10x median player wealth; above cap, faucet rewards reduced by 50% and sink costs increased by 25%; prevents hyper-accumulation while not hard-limiting progress; recalculate cap weekly based on live economic data",
+    "Implement marketplace economics with tax-based sink: 5% transaction tax on every sale (largest single sink), flat 10 Gold listing fee to prevent spam, price floors preventing devaluation below vendor sell prices, price ceilings for critical items preventing gouging during scarcity",
+    "Set up economic monitoring KPIs tracked weekly: M2 total currency supply (target growth 1-3% per month), Velocity (2-5 transactions per Gold per week is healthy), Gini Coefficient (0.4-0.6 target, above 0.7 indicates excessive wealth concentration), Faucet-to-Sink Ratio (0.95-1.05 target; below 0.95 is deflationary, above 1.05 is inflationary), Player Purchasing Power (stable or slowly increasing items affordable per hour of gameplay)"
+  ],
+  "rules": [
+    "Gold should be abundant enough for basic activities but scarce enough that meaningful purchases require deliberate saving and prioritization",
+    "Gems must NEVER provide a competitive advantage: all Gem purchases are cosmetic or convenience-oriented; this is a hard design constraint for competitive fairness",
+    "Players cannot convert between currencies: each currency type has intrinsic value tied to its activity type",
+    "Faucet rates are calibrated: average player earns ~400 Gold per hour of active play; dedicated player affords top-tier upgrade every 2-3 weeks",
+    "Sink distribution: 40% mandatory (ensures baseline outflow), 45% optional (meaningful progression choices), 15% luxury (removes excess without gating)",
+    "Gold supply growth target: 2% per month; dynamic sink multipliers activate when exceeded",
+    "Dynamic sink adjustment: vendor prices up to +20%, repair costs scale with wealth percentile, luxury items with weekly inflation index",
+    "Faucet throttling when supply exceeds target: quest rewards up to -15%, decreased high-value drop rates, login bonuses switch to reputation tokens",
+    "Faucet/sink adjustments must be transparent: UI shows base values, modifiers applied server-side invisibly",
+    "Soft wallet cap at 10x median wealth: above cap, faucet rewards -50%, sink costs +25%; recalculated weekly",
+    "Marketplace transaction tax: 5% of sale price removed from economy (largest single sink)",
+    "Marketplace listing fee: 10 Gold flat to prevent listing spam",
+    "Price floors: minimum listing prices prevent devaluation below vendor sell prices",
+    "Price ceilings: maximum listing prices for critical items prevent gouging during scarcity",
+    "M2 growth target: 1-3% per month",
+    "Velocity healthy range: 2-5 transactions per Gold per week",
+    "Gini Coefficient target: 0.4-0.6; above 0.7 indicates excessive wealth concentration requiring intervention",
+    "Faucet-to-Sink Ratio target: 0.95-1.05; below 0.95 deflationary, above 1.05 inflationary",
+    "Player Purchasing Power should be stable or slowly increasing over time"
+  ],
+  "examples": [
+    {
+      "name": "Three-Currency System",
+      "description": "Gold: earned via quests/dungeons/PvP, spent on gear/consumables/repairs. Gems: purchased with real money, spent on cosmetics/convenience/battle pass. Reputation Tokens: earned via faction activities, spent on faction-exclusive items. No conversion between currencies."
+    },
+    {
+      "name": "Dynamic Inflation Control",
+      "description": "Economy service detects M2 growing at 4% per month (above 2% target) → vendor prices increase by 15% → repair costs scale with wealth percentile → luxury items adjust weekly → quest rewards reduced by 10% → high-value drop rates decreased → after 2 weeks, M2 growth returns to 2% target"
+    },
+    {
+      "name": "Soft Wallet Cap",
+      "description": "Median player wealth is 5,000 Gold; soft cap is 50,000 Gold (10x); player with 60,000 Gold earns 400 Gold from quest but only receives 200 (50% reduction); their repair costs increase from 100 to 125 Gold (25% increase); cap recalculated weekly based on live data"
+    },
+    {
+      "name": "Marketplace Tax Sink",
+      "description": "Player sells item for 1,000 Gold on marketplace → 5% tax (50 Gold) removed from economy → 10 Gold listing fee removed → seller receives 940 Gold → tax is the largest single currency sink in the economy"
+    },
+    {
+      "name": "Economic KPI Dashboard",
+      "description": "Weekly monitoring: M2 = 12.5M Gold (+1.8% this month, within 1-3% target), Velocity = 3.2 (within 2-5 healthy range), Gini = 0.52 (within 0.4-0.6 target), Faucet-to-Sink = 1.02 (within 0.95-1.05 target), Purchasing Power stable → economy healthy, no intervention needed"
+    }
+  ],
+  "references": ["monetization", "trading-system", "anti-cheat"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

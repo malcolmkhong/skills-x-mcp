@@ -1,8 +1,39 @@
 // IndustryX Knowledge MCP Server - Embedding Service
+// AI-Native: Generates embeddings from structured JSON knowledge units
 // Uses deterministic hash-based embeddings for semantic similarity
 // Production: Replace with Supabase + pgvector + OpenAI embeddings for native vector search
 
 const EMBEDDING_DIMENSION = 512;
+
+/**
+ * Build embedding text from a structured JSON knowledge unit.
+ * Uses the most semantically rich fields for embedding:
+ * - title, description (identity)
+ * - intents (what queries should match)
+ * - tags (categorization)
+ * - rules (key constraints)
+ * - anti_patterns (what to avoid)
+ */
+export function buildEmbeddingText(unit: {
+  title: string;
+  description: string;
+  tags?: string[];
+  intents?: string[];
+  rules?: string[];
+  antiPatterns?: string[];
+  implementationSteps?: string[];
+}): string {
+  const parts: string[] = [
+    unit.title,
+    unit.description,
+    ...(unit.intents || []),
+    ...(unit.tags || []),
+    ...(unit.rules || []).slice(0, 10), // Limit rules to first 10 for embedding
+    ...(unit.antiPatterns || []).slice(0, 5),
+    ...(unit.implementationSteps || []).slice(0, 5),
+  ];
+  return parts.join(' ');
+}
 
 /**
  * Generate a deterministic embedding from text using hash-based approach.
@@ -43,11 +74,10 @@ export function generateEmbedding(text: string): number[] {
     // Mix in n-grams with position-dependent hashing
     for (let i = 0; i < ngrams.length; i++) {
       const ngram = ngrams[i];
-      // Combine ngram, dimension seed, and position
       const combined = `${seed}|${ngram}|${i % 7}`;
       for (let j = 0; j < combined.length; j++) {
         hash = ((hash << 5) - hash) + combined.charCodeAt(j);
-        hash = hash & hash; // Convert to 32bit integer
+        hash = hash & hash;
       }
     }
     

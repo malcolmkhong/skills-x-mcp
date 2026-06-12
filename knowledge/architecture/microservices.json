@@ -1,0 +1,84 @@
+{
+  "id": "microservices",
+  "title": "Microservices Architecture",
+  "category": "architecture",
+  "description": "Architecture document defining the microservices decomposition strategy following Domain-Driven Design, service boundaries, API gateway, inter-service communication (synchronous REST and asynchronous Kafka events), data ownership, CQRS, event sourcing, and observability infrastructure.",
+  "tags": ["microservices", "architecture", "service-boundaries", "API-gateway", "distributed", "DDD", "observability", "saga"],
+  "intents": [
+    "design microservices",
+    "service decomposition",
+    "API gateway setup",
+    "inter-service communication",
+    "microservices data architecture",
+    "service registry and discovery",
+    "CQRS in microservices",
+    "observability for distributed systems",
+    "saga pattern implementation",
+    "bounded context design"
+  ],
+  "dependencies": ["event-driven"],
+  "anti_patterns": [
+    "sharing databases between services creating tight coupling",
+    "synchronous call chains longer than 2 services deep",
+    "no circuit breakers leading to cascading failures",
+    "monolithic data model shared across services",
+    "skipping API contract definitions (OpenAPI specs)",
+    "no correlation IDs for distributed tracing",
+    "direct database access across service boundaries",
+    "deploying all services as a single unit defeating independent deployability"
+  ],
+  "implementation_steps": [
+    "Decompose services along bounded context boundaries following DDD: align with business capabilities (auth, inventory, trading, matchmaking), ensure each service owns its data exclusively, separate services with different change velocities, and isolate services with distinct scalability profiles (CPU-bound vs I/O-bound vs memory-bound)",
+    "Establish the service registry defining each service's responsibility, database, and communication pattern: auth-service (PostgreSQL, REST+Events), user-service (PostgreSQL, REST+Events), inventory-service (PostgreSQL+Redis, REST+Events), trading-service (PostgreSQL, REST+Events), save-service (PostgreSQL+S3, REST), match-service (Redis+PostgreSQL, REST+WebSocket), economy-service (PostgreSQL, REST+Events), notification-service (MongoDB, Events), analytics-service (ClickHouse, Events)",
+    "Implement the API Gateway: request routing to backend services, JWT authentication with auth-service and user context header injection, per-user and per-IP rate limiting with sliding window algorithm backed by Redis, request aggregation from multiple services for performance-critical flows, protocol translation between external REST/HTTP and internal gRPC, circuit breaker patterns to prevent cascading failures",
+    "Deploy the API Gateway as a stateless service behind a cloud load balancer with health-check-based routing, scaling horizontally based on request rate",
+    "Implement synchronous inter-service communication: define API contracts using OpenAPI 3.0 specifications in a shared repository, set configurable timeouts (default 5 seconds) and retry policies (3 retries with exponential backoff for transient errors), implement circuit breakers using resilience4j with 50% failure rate threshold over 60-second window",
+    "Implement asynchronous inter-service communication via Kafka event bus: each service publishes events to owned topic namespaces, events follow CloudEvents specification with JSON payload, event ordering guaranteed within same partition key (typically userId), all event consumers must be idempotent tracking processed event IDs",
+    "Implement choreography-based saga pattern for multi-service transactions: e.g., trading-service emits 'trade.settlement.initiated' → inventory-service moves items and emits 'inventory.items.transferred' → economy-service adjusts currencies and emits 'economy.balance.adjusted' → trading-service emits 'trade.settlement.completed'; on failure, failing service emits compensating event and other services roll back; saga state tracked in dedicated saga table within each participating service",
+    "Enforce data architecture rules: each service owns its database exclusively, no cross-service database access, shared data replicated through events, CQRS for read-optimized views of other service data, event sourcing for critical services (trading, economy), strong consistency within a service via database transactions, eventual consistency across services with typical convergence under 5 seconds",
+    "Implement observability: JSON-formatted logs with correlation IDs shipped to Elasticsearch via Filebeat, Prometheus metrics on /metrics endpoint (request count, latency histograms, error rates, custom business metrics), OpenTelemetry SDKs for distributed tracing collected by Jaeger, Grafana dashboards per service and system-level with SLO alerts (error rate > 0.1%, p99 latency > 2s, uptime < 99.9%)"
+  ],
+  "rules": [
+    "Services must be decomposed along bounded context boundaries following Domain-Driven Design principles",
+    "Each service is the sole owner of its data; no service directly accesses another service's database",
+    "Data sharing between services occurs only through well-defined APIs or events",
+    "Services with different release cadences must be separated to prevent coupling between fast-moving and stable components",
+    "Services with distinct resource profiles must be isolated for independent scaling",
+    "All external client traffic must enter through the API Gateway",
+    "API Gateway must validate JWT tokens and inject user context headers before forwarding requests",
+    "Synchronous inter-service calls must have configurable timeouts (default 5 seconds) and retry policies (3 retries with exponential backoff)",
+    "Circuit breakers must use resilience4j with 50% failure rate threshold over 60-second window",
+    "All API contracts must be defined using OpenAPI 3.0 specifications stored in a shared repository",
+    "Events must follow the CloudEvents specification with JSON payload",
+    "Event ordering within the same partition key (userId) is guaranteed; cross-key ordering is not",
+    "All event consumers must be idempotent; track processed event IDs to prevent duplicate processing",
+    "Multi-service transactions must use the choreography-based saga pattern with compensating events",
+    "Saga state must be tracked in a dedicated saga table within each participating service",
+    "Within a service: strong consistency via database transactions; across services: eventual consistency with typical convergence under 5 seconds",
+    "All services must emit structured logs with correlation IDs, Prometheus metrics, and OpenTelemetry traces",
+    "SLO alert thresholds: error rate > 0.1%, p99 latency > 2s, uptime < 99.9%"
+  ],
+  "examples": [
+    {
+      "name": "Service Registry",
+      "description": "auth-service (PostgreSQL, REST+Events), inventory-service (PostgreSQL+Redis, REST+Events), trading-service (PostgreSQL, REST+Events), save-service (PostgreSQL+S3, REST), match-service (Redis+PostgreSQL, REST+WebSocket), economy-service (PostgreSQL, REST+Events), notification-service (MongoDB, Events), analytics-service (ClickHouse, Events)"
+    },
+    {
+      "name": "Saga Pattern - Trade Completion",
+      "description": "trading-service emits 'trade.settlement.initiated' → inventory-service moves items, emits 'inventory.items.transferred' → economy-service adjusts currencies, emits 'economy.balance.adjusted' → trading-service emits 'trade.settlement.completed'; on failure at any step, compensating events roll back previously completed steps"
+    },
+    {
+      "name": "API Gateway Circuit Breaker",
+      "description": "When inventory-service has 50% failure rate over 60 seconds, the circuit breaker trips, the gateway returns cached or degraded responses, and prevents cascading failures to trading-service and other downstream consumers"
+    },
+    {
+      "name": "CQRS for Cross-Service Data",
+      "description": "Trading service needs user profile data; instead of calling user-service API synchronously, it consumes user.profile.updated events and maintains a local materialized view for fast reads without cross-service queries"
+    }
+  ],
+  "references": ["event-driven", "trading-system", "auth-security", "ci-cd-pipeline"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

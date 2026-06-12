@@ -1,4 +1,4 @@
-// API: Search knowledge using hybrid retrieval
+// API: Search knowledge using hybrid retrieval with intent matching
 import { NextRequest, NextResponse } from 'next/server';
 import { generateEmbedding } from '@/lib/knowledge/embedding';
 import { hybridSearch, recordRetrieval } from '@/lib/knowledge/vectorSearch';
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Generate embedding for the query
-    const queryEmbedding = await generateEmbedding(query);
+    const queryEmbedding = generateEmbedding(query);
     
     // Perform hybrid search
     const results = await hybridSearch(

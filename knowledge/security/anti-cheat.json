@@ -1,0 +1,92 @@
+{
+  "id": "anti-cheat",
+  "title": "Anti-Cheat Security Measures",
+  "category": "security",
+  "description": "Comprehensive anti-cheat security framework covering defense in depth (4 layers: client integrity, server authority, behavioral analysis, enforcement), client build integrity verification, memory protection, network protection, server-side input validation, rate limiting, state consistency, anomaly detection (statistical and ML), and graduated enforcement with appeals.",
+  "tags": ["anti-cheat", "integrity", "validation", "anomaly-detection", "enforcement", "memory-protection", "behavioral-analysis"],
+  "intents": [
+    "prevent cheating",
+    "detect anomalies",
+    "client integrity verification",
+    "enforce fair play",
+    "server-side validation for game inputs",
+    "behavioral anomaly detection",
+    "shadow ban implementation",
+    "anti-debugging techniques",
+    "rate limiting game commands",
+    "ML-based cheat detection"
+  ],
+  "dependencies": ["auth-security"],
+  "anti_patterns": [
+    "trusting client-side game state as authoritative",
+    "running critical game logic on the client",
+    "no server-side validation of player inputs",
+    "single-layer defense relying only on client integrity checks",
+    "automated bans based solely on ML model output without corroboration",
+    "no rate limiting allowing script-driven input floods",
+    "storing decrypted game state in a single contiguous memory region",
+    "skipping integrity re-verification during runtime allowing DLL injection"
+  ],
+  "implementation_steps": [
+    "Establish the four-layer defense in depth model: Layer 1 - Client Integrity (verify unmodified client), Layer 2 - Server Authority (all authoritative state and calculations server-side, client is rendering and input only), Layer 3 - Behavioral Analysis (detect statistically anomalous behavior), Layer 4 - Enforcement (graduated consequences from warnings to permanent bans)",
+    "Implement client build integrity: sign each game build with a private key, verify signature at launch before server connection; hash-verify critical game assets (config files, scripts, shaders) at startup with full asset re-download on mismatch; run continuous background integrity checks re-verifying loaded modules every 60 seconds to detect runtime patching (DLL injection, memory modification)",
+    "Implement memory protection: anti-debugging techniques (hardware breakpoints, software breakpoints, debugger attachment detection triggering immediate disconnect); protect critical memory regions (game state, network buffers, encryption keys) using virtual memory protection APIs and periodic integrity checks; fragment game state across memory with obfuscated pointers instead of storing in a single contiguous region",
+    "Implement network protection: TLS 1.3 for all client-server communication plus application-level encryption (AES-256-GCM with per-session keys) to prevent packet sniffing and replay; include packet sequence numbers and timestamps in encrypted payload to detect injection, reordering, and replay; server validates command rate and order, rejecting flooding and out-of-order sequences",
+    "Implement server-side input validation: validate all client inputs against current game state; use server-side physics simulation with tolerance window for movement (correct deviations, flag persistent cheats); validate action inputs against cooldown timers, resource requirements, and line-of-sight maintained server-side",
+    "Implement rate limiting and throttling: rate-limit per command type calibrated slightly above theoretical maximum for skilled human players; burst allowances for short intense periods with slow replenishment; global command budget limiting total commands per minute per session to prevent script-driven floods",
+    "Implement server-side state consistency: server is single source of truth, client updates are suggestions validated before applying; log critical state transitions (inventory changes, currency transactions, level progression) with before/after snapshots; run periodic consistency checks reconciling inventory counts with acquisition/consumption logs and currency balances with transaction histories, flagging discrepancies for investigation",
+    "Implement statistical anomaly detection: calculate coefficient of variation of action intervals flagging players below 1st percentile (automated tools have unusually low timing variance); track performance metrics (accuracy, reaction time, resource acquisition rate) per session flagging performance exceeding 5 standard deviations above mean for sustained periods; detect unnatural play patterns (24-hour continuous play, perfectly repetitive sequences, inhuman response times)",
+    "Implement ML-based detection: unsupervised Isolation Forest model trained on behavioral feature vectors to identify anomalous overall profiles; supervised model trained on labeled cheat/non-cheat data classifying flagged players; retrain monthly with human-reviewed cases; ML predictions are one input to enforcement decision only, never sole basis for automated action without corroborating evidence from other layers",
+    "Implement player reporting system: players report suspected cheaters; reports weighted by reporter credibility (historical accuracy); aggregate reports to identify investigation targets; high-volume reports against single player trigger expedited moderation review",
+    "Implement graduated enforcement framework: Level 1 Warning (first minor anomaly, low confidence, permanent record), Level 2 Shadow Ban (repeated minor anomalies or moderate confidence, 7 days, matched only with other shadow-banned players, not notified), Level 3 Competitive Suspension (confirmed cheat in competitive mode, 30 days), Level 4 Account Suspension (confirmed cheat with economic impact, 90 days), Level 5 Permanent Ban (confirmed cheat with severe impact or repeated Level 4, permanent with hardware ID blacklist requiring VP approval)",
+    "Implement appeals process: players can appeal Level 3+ actions through support ticket; senior moderator reviews within 72 hours; successful appeals restore account and remove strike from record",
+    "Implement cheat incident response: document exploit and assess impact (affected features, user count, economic damage); deploy server-side mitigation within 4 hours for critical exploits; update client-side detection in next patch; identify affected players through forensic analysis and apply enforcement; conduct post-incident review for prevention and architectural improvements"
+  ],
+  "rules": [
+    "Never trust the client: all authoritative game state and calculations must be performed server-side; the client is a rendering and input layer only",
+    "All game logic affecting competitive fairness or economic integrity must be protected by these anti-cheat measures",
+    "Client builds must be signed with a private key; modified binaries must fail signature verification and cannot connect to the server",
+    "Continuous integrity re-verification every 60 seconds to detect runtime patching (DLL injection, memory modification)",
+    "Anti-debugging techniques must be employed: detect hardware breakpoints, software breakpoints, and debugger attachment with immediate disconnect",
+    "Game state must be fragmented across memory with obfuscated pointers; never store decrypted state in a single contiguous memory region",
+    "All client-server communication must use TLS 1.3 plus application-level AES-256-GCM encryption with per-session keys",
+    "Packet sequence numbers and timestamps must be included in encrypted payload to detect injection, reordering, and replay",
+    "All client inputs must be validated server-side against current game state including movement physics, cooldown timers, resource requirements, and line-of-sight",
+    "Rate limiting must be calibrated slightly above theoretical maximum for skilled human players with global command budget per session",
+    "Server is the single source of truth for all game state; client state updates are suggestions validated before applying",
+    "Critical state transitions must be logged with before/after snapshots and validated against business rules",
+    "Periodic consistency checks must reconcile inventory and currency balances against transaction logs",
+    "ML predictions must never be the sole basis for automated enforcement action; corroboration from other layers is required",
+    "Shadow-banned players must be matched only with other shadow-banned players and their actions must not affect the legitimate economy",
+    "Hardware ID bans require VP-level approval before implementation",
+    "Appeals for Level 3+ actions must be reviewed by a senior moderator within 72 hours",
+    "Server-side mitigations for critical exploits must be deployed within 4 hours"
+  ],
+  "examples": [
+    {
+      "name": "Movement Validation",
+      "description": "Server maintains physics simulation; client reports position; server checks deviation from calculated position within tolerance window; persistent deviations beyond threshold trigger cheat flag and server-side correction"
+    },
+    {
+      "name": "Automated Tool Detection via Timing",
+      "description": "Human players have natural variance in input timing (coefficient of variation typically 0.3-0.5); automated tools produce patterns with CV below 0.05; system flags players below 1st percentile of CV distribution"
+    },
+    {
+      "name": "Shadow Ban Implementation",
+      "description": "Player flagged for repeated anomalies is shadow-banned: they continue playing normally but are matched exclusively with other shadow-banned players; their marketplace trades and economic actions do not affect the legitimate economy; they are not notified of the restriction"
+    },
+    {
+      "name": "Value Disparity Fraud Detection",
+      "description": "Statistical analysis tracks resource acquisition rates; players exceeding 5 standard deviations above the mean for sustained periods are flagged; combined with supervised ML model output and server-side state consistency checks, the system builds a multi-layered case before enforcement"
+    },
+    {
+      "name": "Cheat Incident Response",
+      "description": "New exploit discovered → document and assess impact → deploy server-side mitigation within 4 hours → update client detection in next patch → identify affected players via forensic analysis → apply graduated enforcement → post-incident review for architectural improvements"
+    }
+  ],
+  "references": ["auth-security", "trading-system", "virtual-economy"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

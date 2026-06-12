@@ -1,0 +1,104 @@
+{
+  "id": "auth-security",
+  "title": "Authentication Security Rules",
+  "category": "security",
+  "description": "Mandatory security rules for authentication systems covering password policies (Argon2id hashing, complexity, rotation), JWT token management (RS256 signing, refresh token flow, revocation), multi-factor authentication (TOTP, SMS, email OTP), session management, account recovery, and security monitoring with anomaly detection.",
+  "tags": ["authentication", "security", "JWT", "MFA", "session-management", "password-policy", "token-revocation"],
+  "intents": [
+    "implement auth security",
+    "JWT token management",
+    "MFA setup",
+    "session handling",
+    "password hashing and storage",
+    "refresh token flow",
+    "token revocation",
+    "account recovery security",
+    "authentication anomaly detection",
+    "multi-factor authentication enforcement"
+  ],
+  "dependencies": [],
+  "anti_patterns": [
+    "storing passwords in plaintext or with reversible encryption",
+    "using weak hash functions (MD5, SHA-1, SHA-256 without salt) for passwords",
+    "including sensitive user data (email, roles) in JWT payload",
+    "reusing refresh tokens instead of single-use rotation",
+    "no revocation list for JWTs allowing compromised tokens to persist",
+    "skipping MFA for administrative or financial accounts",
+    "allowing unlimited concurrent sessions without bounds",
+    "no account lockout after repeated failed login attempts",
+    "using SMS as primary MFA (less secure than TOTP)",
+    "allowing MFA bypass for locked accounts via recovery codes"
+  ],
+  "implementation_steps": [
+    "Implement password storage with Argon2id: memory cost 65536 KiB, time cost 3 iterations, parallelism 4; generate unique salt of at least 16 bytes per password using cryptographically secure RNG; store hashes and salts in a dedicated table with restricted access; never include password hashes in logs, traces, or debug output",
+    "Enforce password complexity: minimum 12 characters, at least 3 of 4 categories (uppercase, lowercase, digits, special characters), must not match top 100,000 common passwords (HaveIBeenPwned corpus), must not contain username, email prefix, or 4+ consecutive characters from display name",
+    "Implement password rotation: expire every 90 days with 14-day advance notification; prevent reuse of last 12 passwords; lock account for 15 minutes after 3 failed attempts with doubling lockout duration (15 min, 30 min, 60 min); lock until email verification after 10 failed attempts in 24 hours",
+    "Configure JWT access tokens: 15-minute expiration, RS256 signing (RSA with SHA-256); include claims: sub (user ID), iat (issued at), exp (expiration), jti (unique token ID for revocation), sid (session ID); do NOT include sensitive data (email, roles) in payload",
+    "Rotate JWT signing keys every 30 days; old keys remain valid for verification for 24 additional hours after rotation for in-flight tokens",
+    "Implement refresh token flow: 7-day opaque random strings stored in database; single-use rotation (new refresh token issued on each use, old one invalidated); store hashed in database (SHA-256 of token value); if a used-again-after-invalidation refresh token is detected (potential theft), revoke entire session and all associated tokens, notify user via email, force re-authentication; scope tokens to device and IP range",
+    "Implement token revocation: maintain revocation list in Redis with TTL equal to token's remaining lifetime; add jti to revocation list on logout, password change, or security event; API gateway checks revocation list before accepting any access token (adds ~1ms latency)",
+    "Implement MFA with three methods: TOTP (RFC 6238, 30-second time steps, authenticator apps), SMS OTP (6-digit, 5-minute expiration, fallback only), Email OTP (6-digit, 10-minute expiration, account recovery and secondary factor); MFA mandatory for admin and financial accounts; up to 3 TOTP devices and 1 SMS number per user; generate 8 single-use backup recovery codes (10 characters each)",
+    "Implement session management: server-side session tracking in database; limit to 5 concurrent sessions (oldest terminated on 6th); invalidate sessions on logout, password change, MFA enrollment change, account lock, or security-triggered revocation; track metadata (device fingerprint, IP, user agent, creation timestamp, last activity); auto-terminate idle sessions after 30 minutes; maximum session duration 24 hours regardless of activity",
+    "Implement account recovery: password reset via email with single-use token (1-hour expiration); MFA recovery requires email verification + identity verification via support ticket (government ID for high-value accounts) + 48-hour cooling period before MFA removal; recovery codes cannot bypass MFA if account is locked for suspicious activity",
+    "Implement security monitoring: log all auth events (successful logins, failed attempts, MFA challenges, password changes, session creation/termination) with full context (IP, user agent, timestamp); anomaly detection rules for new country logins, rapid sequential login attempts across accounts, mismatched IP token usage, refresh token reuse; flagged events trigger security team notification and potential automatic session revocation based on risk score threshold"
+  ],
+  "rules": [
+    "Password hashing must use Argon2id with memory cost 65536 KiB, time cost 3 iterations, parallelism 4",
+    "Passwords must never be stored in plaintext, reversible encryption, or weak hash functions (MD5, SHA-1, SHA-256 without salt)",
+    "Unique salt of at least 16 bytes per password using cryptographically secure random number generator",
+    "Password hashes and salts must be in a dedicated table with restricted access; never appear in logs, traces, or debug output",
+    "Minimum password length: 12 characters with at least 3 of 4 categories (uppercase, lowercase, digits, special)",
+    "Passwords must not match top 100,000 most common passwords (HaveIBeenPwned corpus)",
+    "Passwords must not contain username, email prefix, or 4+ consecutive characters from display name",
+    "Passwords expire every 90 days; users notified 14 days before expiration",
+    "Cannot reuse any of last 12 passwords",
+    "Account locked 15 minutes after 3 failed attempts; lockout doubles on each subsequent lockout",
+    "Account locked until email verification after 10 failed attempts in 24 hours",
+    "Access tokens: 15-minute JWT expiration, RS256 signing",
+    "JWT signing keys rotated every 30 days; old keys valid for 24 additional hours",
+    "JWTs must include: sub, iat, exp, jti, sid claims; must NOT include sensitive user data",
+    "Refresh tokens are single-use: new token issued on each use, old one invalidated",
+    "Refresh tokens stored hashed (SHA-256) in database; raw token transmitted only once",
+    "Detected refresh token reuse (potential theft) triggers full session revocation, email notification, and forced re-authentication",
+    "Refresh tokens scoped to device and IP range; different IP triggers verification step",
+    "Token revocation list maintained in Redis with TTL equal to remaining token lifetime",
+    "API gateway must check revocation list before accepting any access token",
+    "MFA is mandatory for administrative accounts and accounts handling financial transactions",
+    "Backup recovery codes are single-use; users can have up to 3 TOTP devices and 1 SMS number",
+    "Maximum 5 concurrent sessions per user; oldest terminated on 6th creation",
+    "Sessions invalidated on: logout, password change, MFA enrollment change, account lock, security-triggered revocation",
+    "Session idle timeout: 30 minutes; maximum session duration: 24 hours",
+    "Password reset tokens: single-use, 1-hour expiration via email",
+    "MFA recovery requires email verification + identity verification + 48-hour cooling period",
+    "Recovery codes cannot bypass MFA for accounts locked due to suspicious activity",
+    "All authentication events must be logged with full context (IP, user agent, timestamp)",
+    "Anomaly detection must flag: new country logins, rapid cross-account attempts, IP-mismatched token usage, refresh token reuse"
+  ],
+  "examples": [
+    {
+      "name": "Password Hashing with Argon2id",
+      "description": "Hash password using Argon2id (memory 65536 KiB, time 3, parallelism 4) with unique 16+ byte salt from CSPRNG; store hash and salt in restricted-access table; never log or trace the hash"
+    },
+    {
+      "name": "Refresh Token Theft Detection",
+      "description": "If a refresh token that was already invalidated is presented again (potential theft), the system revokes the entire session and all associated tokens, notifies the user via email, and forces re-authentication from scratch"
+    },
+    {
+      "name": "Token Revocation Flow",
+      "description": "User logs out → jti added to Redis revocation list with TTL matching token's remaining lifetime → API gateway checks revocation list on every request (~1ms overhead) → revoked tokens are rejected even if not expired"
+    },
+    {
+      "name": "Account Lockout Escalation",
+      "description": "3 failed attempts → 15 min lockout; 3 more → 30 min lockout; 3 more → 60 min lockout; 10 total in 24 hours → locked until email verification and password reset"
+    },
+    {
+      "name": "MFA Recovery for High-Value Account",
+      "description": "User loses MFA access → email verification → support ticket with government ID → 48-hour cooling period → MFA removed → user must re-enroll MFA on next login"
+    }
+  ],
+  "references": ["anti-cheat", "microservices"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

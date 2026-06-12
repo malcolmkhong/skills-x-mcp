@@ -1,5 +1,5 @@
 // IndustryX MCP Server - Tool Definitions
-// 8 MCP tools for AI agents to access IndustryX knowledge
+// AI-Native: 8 MCP tools returning structured JSON, not markdown blobs
 // This is a SKILLS PROVIDER - AI agents call these tools to get knowledge
 
 import {
@@ -8,6 +8,7 @@ import {
   buildContext,
   listDocuments,
   type SearchResult,
+  type KnowledgeDocumentSummary,
 } from './api-client';
 
 // MCP Tool definition schema
@@ -51,13 +52,13 @@ export const MCP_TOOLS: MCPTool[] = [
   {
     name: 'search_knowledge',
     description:
-      'Search the IndustryX knowledge base using hybrid retrieval (semantic similarity + keyword matching + category boosting). Returns matching documents with slug, title, category, description, and relevance score. Use this for general knowledge searches across all categories.',
+      'Search the IndustryX knowledge base using hybrid retrieval (semantic similarity + keyword matching + intent matching + category boosting). Returns matching knowledge units with structured fields. Use this for general knowledge searches across all categories.',
     inputSchema: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: 'The search query to find relevant knowledge documents',
+          description: 'The search query to find relevant knowledge units',
         },
         limit: {
           type: 'number',
@@ -75,13 +76,13 @@ export const MCP_TOOLS: MCPTool[] = [
   {
     name: 'retrieve_knowledge',
     description:
-      'Retrieve a full knowledge document by its slug. Returns the complete document including the full markdown content. Use this after search_knowledge to get the full content of a relevant document.',
+      'Retrieve a full knowledge unit by its slug. Returns the complete structured JSON including rules, anti-patterns, implementation steps, dependencies, and examples. Use this after search_knowledge to get full details.',
     inputSchema: {
       type: 'object',
       properties: {
         slug: {
           type: 'string',
-          description: 'The unique slug identifier of the knowledge document (e.g., "cloud-save", "auth-security")',
+          description: 'The unique slug identifier of the knowledge unit (e.g., "cloud-save", "auth-security")',
         },
       },
       required: ['slug'],
@@ -90,7 +91,7 @@ export const MCP_TOOLS: MCPTool[] = [
   {
     name: 'build_context',
     description:
-      'Build an optimized context string from the knowledge base for injection into AI agent prompts. Performs semantic search, retrieves top documents, applies token budget, and assembles a clean context block. Use this when you need to inject relevant knowledge into your prompt efficiently.',
+      'Build an optimized context string from the knowledge base for injection into AI agent prompts. Performs semantic search, retrieves top knowledge units, applies token budget, and assembles a structured context block with rules, steps, anti-patterns, and examples.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -218,46 +219,57 @@ export const MCP_TOOLS: MCPTool[] = [
   },
 ];
 
-// Format search results as a readable text response for MCP clients
+// Format search results as structured JSON for MCP clients
 function formatSearchResults(results: SearchResult[]): string {
   if (results.length === 0) {
-    return 'No matching documents found. Try a different query or broader search terms.';
+    return 'No matching knowledge units found. Try a different query or broader search terms.';
   }
 
-  return results
-    .map(
-      (r, i) =>
-        `${i + 1}. **${r.title}** (${r.category})\n` +
-        `   Slug: ${r.slug}\n` +
-        `   Score: ${r.score.toFixed(4)}\n` +
-        `   ${r.description}\n` +
-        `   → Use retrieve_knowledge with slug "${r.slug}" to get full content`
-    )
-    .join('\n\n');
+  const formatted = results.map((r, i) => ({
+    index: i + 1,
+    id: r.slug,
+    title: r.title,
+    category: r.category,
+    description: r.description,
+    tags: r.tags,
+    intents: r.intents,
+    relevanceScore: parseFloat(r.score.toFixed(4)),
+    scoreBreakdown: {
+      embedding: parseFloat(r.embeddingScore.toFixed(4)),
+      keyword: parseFloat(r.keywordScore.toFixed(4)),
+      category: parseFloat(r.categoryScore.toFixed(4)),
+      intent: parseFloat(r.intentScore.toFixed(4)),
+      usage: parseFloat(r.usageWeight.toFixed(4)),
+    },
+  }));
+
+  return JSON.stringify(formatted, null, 2);
 }
 
-// Format a full document for display
-function formatDocument(doc: {
-  slug: string;
-  title: string;
-  category: string;
-  description: string;
-  keywords: string[];
-  markdownContent: string;
-  version: number;
-  accessCount: number;
-  updatedAt: string;
-}): string {
-  return (
-    `# ${doc.title}\n\n` +
-    `**Category:** ${doc.category}\n` +
-    `**Slug:** ${doc.slug}\n` +
-    `**Description:** ${doc.description}\n` +
-    `**Keywords:** ${doc.keywords.join(', ')}\n` +
-    `**Version:** ${doc.version} | **Access Count:** ${doc.accessCount} | **Updated:** ${doc.updatedAt}\n\n` +
-    `---\n\n` +
-    doc.markdownContent
-  );
+// Format a full knowledge unit for display as structured JSON
+function formatDocument(doc: KnowledgeDocumentSummary): string {
+  const formatted = {
+    id: doc.slug,
+    title: doc.title,
+    category: doc.category,
+    description: doc.description,
+    tags: doc.tags,
+    intents: doc.intents,
+    dependencies: doc.dependencies,
+    anti_patterns: doc.antiPatterns,
+    implementation_steps: doc.implementationSteps,
+    rules: doc.rules,
+    examples: doc.examples,
+    references: doc.references,
+    metadata: {
+      version: doc.schemaVersion,
+      docVersion: doc.version,
+      accessCount: doc.accessCount,
+      updatedAt: doc.updatedAt,
+    },
+  };
+
+  return JSON.stringify(formatted, null, 2);
 }
 
 // Execute a tool call by name with the given arguments
@@ -294,7 +306,14 @@ export async function executeTool(
         return {
           content: [{
             type: 'text',
-            text: `# Assembled Context\n\n${result.context}\n\n---\n**Stats:** ${result.documentsUsed} documents used, ~${result.totalTokens} tokens\n**Sources:** ${result.sources.map(s => `${s.title} (${s.category}, score: ${s.score.toFixed(3)})`).join(', ')}`,
+            text: JSON.stringify({
+              context: result.context,
+              stats: {
+                documentsUsed: result.documentsUsed,
+                totalTokens: result.totalTokens,
+                sources: result.sources,
+              },
+            }, null, 2),
           }],
         };
       }

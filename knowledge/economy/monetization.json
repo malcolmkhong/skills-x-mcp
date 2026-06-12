@@ -1,0 +1,91 @@
+{
+  "id": "monetization",
+  "title": "Monetization Strategies",
+  "category": "economy",
+  "description": "Strategic document covering freemium monetization model, pricing framework with Gem tiers, battle pass system (free/premium tracks), ethical guidelines (no pay-to-win, no loot boxes with gameplay items, spending caps, transparent pricing, no dark patterns), revenue optimization via personalization and conversion funnel, and analytics KPIs.",
+  "tags": ["monetization", "revenue", "pricing", "freemium", "premium", "battle-pass", "ethical", "conversion"],
+  "intents": [
+    "monetization strategy",
+    "pricing framework",
+    "battle pass design",
+    "ethical monetization",
+    "revenue optimization",
+    "conversion funnel",
+    "Gem pricing tiers",
+    "no pay-to-win design",
+    "spending caps",
+    "limited-time events"
+  ],
+  "dependencies": ["virtual-economy"],
+  "anti_patterns": [
+    "pay-to-win mechanics giving paying players competitive advantage",
+    "loot boxes with gameplay items instead of cosmetics only",
+    "no spending caps allowing uncontrolled spending",
+    "dark patterns: artificial urgency, deceptive scarcity, confirm shaming",
+    "hidden fees or unclear pricing",
+    "no duplicate protection in randomized purchases",
+    "targeting minors with aggressive promotions",
+    "non-refundable virtual currency with no grace period",
+    "anniversary event item re-releases breaking exclusivity promises"
+  ],
+  "implementation_steps": [
+    "Establish the freemium monetization model: base game is free to play maximizing player base (critical for multiplayer and marketplace liquidity); optional purchases provide cosmetic customization, convenience features, and time-saving mechanics; spending money enhances experience, never bypasses it; paying players never gain competitive advantage over non-paying",
+    "Set revenue mix targets: Cosmetic Items 40%, Battle Pass 25%, Convenience 20%, Bundles & Promotions 10%, Social Features 5%",
+    "Define Gem pricing tiers with decreasing per-unit cost: Starter (100 Gems/$0.99, 0% bonus), Standard (550/$4.99, 10%), Premium (1,200/$9.99, 20%), Deluxe (2,500/$19.99, 25%), Ultimate (6,500/$49.99, 30%), Supreme (14,000/$99.99, 40%); calibrate decreasing marginal discount per tier so larger purchases are rewarded without making small purchases feel punitive",
+    "Define item pricing guidelines: Common Cosmetics 100-300 Gems, Rare 400-800, Epic 1,000-2,000, Legendary 2,500-5,000; Convenience Items 200-600 per feature; Battle Pass 600 Gems per season ($4.20 effective)",
+    "Implement the Battle Pass system on a 12-week seasonal cycle: Free Track (all players: Gold, reputation tokens, small cosmetics for engagement), Premium Track (Gem purchase: 50 tiers of exclusive cosmetics/emotes/convenience, total value 5-10x purchase price for strong perceived value), Tier Skipping (50 Gems per tier, more expensive than earning but available for time-constrained players), Reward Structure (front-loaded first 10 tiers for early satisfaction, desirable items distributed throughout, legendary completion reward at final tier)",
+    "Design seasonal content cadence: new thematic cosmetic collection (8-12 items), 2-3 new gameplay modifiers (cosmetic-only effects), seasonal event with limited-time challenges, battle pass adjustments based on previous season analytics",
+    "Enforce ethical monetization guidelines (mandatory, non-negotiable): (1) No Pay-to-Win—no purchase provides measurable competitive advantage; (2) No Loot Boxes with Gameplay Items—randomized purchases contain only cosmetics, display exact probabilities, implement duplicate protection; (3) Spending Caps—players set monthly limits, prominently displayed in shop, purchases blocked when reached; (4) Transparent Pricing—display in both Gems and local currency, no hidden fees; (5) No Dark Patterns—no artificial urgency, deceptive scarcity, or manipulative UI; (6) Refund Policy—unused currency refundable within 14 days; (7) Minor Protection—under-18 have lower default spending caps, no targeted promotions, parental controls",
+    "Implement shop personalization: recommendation engine based on play style signals (character class, game mode preferences, activity patterns), social signals (items popular among friends and guildmates), and purchase history (complementary items from owned sets); refresh recommendations daily; never include items player already owns",
+    "Monitor and optimize the conversion funnel: Impression (player sees shop/item in match) → Visit (opens shop, target 30% of DAU) → Browse (views item details) → Cart (adds to cart, target 15% browse-to-cart) → Purchase (completes transaction, target 60% cart-to-purchase); optimize each stage through A/B testing of layout, pricing, and presentation",
+    "Implement limited-time events: Holiday Events (themed cosmetic collections 2-4 weeks), Anniversary Events (exclusive never-re-released items as true limited editions), Collaboration Events (cross-brand partnerships planned 3-6 months ahead with legal approval); mark items as time-limited with exact end dates; items unavailable after event preserving exclusivity",
+    "Track monetization KPIs: ARPU $3.50/month (total revenue / MAU), ARPPU $25.00/month (total revenue / paying MAU), Conversion Rate 5-8% (paying MAU / total MAU), Retention D30 for Payers >40%, LTV $35 (average total spend per user), Churn Rate (Paying) <5%/month, Battle Pass Attach Rate 20-30% (premium BP purchasers / DAU)"
+  ],
+  "rules": [
+    "Freemium model: base game free, optional purchases for cosmetics, convenience, and time-saving; spending enhances experience, never bypasses it",
+    "No Pay-to-Win: no purchase may provide a measurable competitive advantage in gameplay—hard constraint",
+    "No Loot Boxes with Gameplay Items: randomized purchases may only contain cosmetic items; must display exact probabilities per rarity tier; duplicate protection required",
+    "Spending Caps: players can set monthly spending limits in account settings; prominently displayed in shop; purchases blocked when limit reached",
+    "Transparent Pricing: all prices displayed in both Gems and local currency equivalent; exchange rates shown clearly; no hidden fees",
+    "No Dark Patterns: no artificial urgency (countdown timers on always-available items), no deceptive scarcity (claiming limited stock when unlimited), no manipulative UI (confirm shaming, pre-selected options)",
+    "Refund Policy: unused virtual currency refundable within 14 days of purchase; used currency non-refundable except unauthorized access cases",
+    "Minor Protection: under-18 players have lower default spending caps, no targeted promotions, and parental controls that can disable in-app purchases entirely",
+    "Revenue mix targets: Cosmetics 40%, Battle Pass 25%, Convenience 20%, Bundles 10%, Social 5%",
+    "Gem pricing: decreasing per-unit cost at higher tiers with decreasing marginal discount per tier",
+    "Battle Pass: 12-week seasonal cycle, free track for engagement, premium track with 5-10x value over purchase price, 50 Gems per tier skip",
+    "Battle Pass rewards: front-loaded in first 10 tiers, desirable items distributed throughout, legendary item at final tier as completion reward",
+    "Anniversary event items are never re-released—true limited editions preserving exclusivity",
+    "Collaboration events planned 3-6 months in advance with legal approval",
+    "Time-limited items must display exact end dates clearly",
+    "Shop recommendations refreshed daily; never include owned items; based on play style, social signals, and purchase history",
+    "Conversion funnel targets: Visit rate 30% of DAU, Browse-to-cart 15%, Cart-to-purchase 60%",
+    "ARPU target: $3.50/month; ARPPU target: $25.00/month; Conversion Rate target: 5-8%; LTV target: $35; Paying Churn target: <5%/month; Battle Pass Attach Rate: 20-30%"
+  ],
+  "examples": [
+    {
+      "name": "Gem Pricing Tier Calculation",
+      "description": "Supreme Pack: 14,000 Gems for $99.99 = $0.71 per 100 Gems (40% bonus vs Starter's $0.99). Marginal discount decreases: Starter→Standard saves $0.08/100, Standard→Premium saves $0.08/100, Premium→Deluxe saves $0.03/100, rewarding large purchases without punishing small ones"
+    },
+    {
+      "name": "Battle Pass Value Proposition",
+      "description": "Premium Battle Pass costs 600 Gems ($4.20 effective). 50 tiers contain: 12 exclusive cosmetics (valued at 8,000 Gems if sold individually), 8 emotes (3,200 Gems), convenience items (1,500 Gems) = total value ~12,700 Gems ($88.90 effective) = 5-10x value over purchase price"
+    },
+    {
+      "name": "Ethical Loot Box Implementation",
+      "description": "Cosmetic loot box: displays 'Common 70%, Rare 20%, Epic 8%, Legendary 2%' probabilities; after 10 duplicates, next drop guaranteed new item; contains ONLY cosmetic items; no gameplay stats or competitive advantages"
+    },
+    {
+      "name": "Spending Cap in Action",
+      "description": "Player sets $30/month spending cap → purchases $25 in Gems → attempts another $10 purchase → blocked with message 'You've reached your monthly spending limit of $30. Your limit will reset on [date]' → cap prominently displayed in shop settings"
+    },
+    {
+      "name": "Limited-Time Event with Exclusivity",
+      "description": "Winter Holiday Event (Dec 15 - Jan 5): themed cosmetic collection of 10 items available for purchase; items marked 'Available until January 5' with countdown; after Jan 5, items removed from shop and never re-released; drives event-time engagement and purchase urgency based on genuine scarcity"
+    }
+  ],
+  "references": ["virtual-economy", "trading-system"],
+  "metadata": {
+    "version": "1.0.0",
+    "updated_at": "2026-03-05"
+  }
+}

@@ -1,4 +1,4 @@
-// API: Ingest knowledge from markdown files
+// API: Ingest knowledge from JSON files
 import { NextRequest, NextResponse } from 'next/server';
 import { ingestKnowledgeBase, ingestCategory } from '@/lib/knowledge/ingestion';
 import type { KnowledgeCategory } from '@/types/knowledge';

@@ -1,66 +1,38 @@
 // IndustryX Knowledge MCP Server - Ingestion Pipeline
-// Scans markdown files, reads metadata, generates embeddings, stores content
+// AI-Native: Scans JSON knowledge unit files, validates schema, generates embeddings, stores content
+// No markdown dependency - JSON is the primary source of truth
 
 import fs from 'fs';
 import path from 'path';
 import { db } from '@/lib/db';
-import { generateEmbedding } from './embedding';
-import type { IngestionResult, MarkdownMetadata, KnowledgeCategory, KNOWLEDGE_CATEGORIES } from '@/types/knowledge';
+import { generateEmbedding, buildEmbeddingText } from './embedding';
+import { validateKnowledgeUnit } from '@/types/knowledge';
+import type { IngestionResult, KnowledgeCategory, JsonKnowledgeFile } from '@/types/knowledge';
 
 /**
- * Parse frontmatter metadata from markdown content
- * Format:
- * ---
- * title: Document Title
- * category: skills
- * description: Brief description
- * keywords: keyword1, keyword2, keyword3
- * ---
+ * Parse a JSON knowledge unit file and validate against schema
  */
-function parseFrontmatter(content: string): { metadata: Partial<MarkdownMetadata>; body: string } {
-  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
-  const match = content.match(frontmatterRegex);
-
-  if (!match) {
-    return {
-      metadata: {},
-      body: content,
+function parseJsonKnowledgeFile(filePath: string): { data: JsonKnowledgeFile; errors?: string[] } {
+  const errors: string[] = [];
+  
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const raw = JSON.parse(content);
+    
+    // Validate against Zod schema
+    const validation = validateKnowledgeUnit(raw);
+    if (!validation.success) {
+      const zodErrors = validation.errors?.errors.map(e => `${e.path.join('.')}: ${e.message}`) || [];
+      return { data: raw as JsonKnowledgeFile, errors: zodErrors };
+    }
+    
+    return { data: validation.data as JsonKnowledgeFile };
+  } catch (error) {
+    return { 
+      data: {} as JsonKnowledgeFile, 
+      errors: [`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`] 
     };
   }
-
-  const frontmatter = match[1];
-  const body = match[2];
-
-  const metadata: Partial<MarkdownMetadata> = {};
-
-  const lines = frontmatter.split('\n');
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-
-    const key = line.substring(0, colonIndex).trim().toLowerCase();
-    const value = line.substring(colonIndex + 1).trim();
-
-    switch (key) {
-      case 'slug':
-        metadata.slug = value;
-        break;
-      case 'title':
-        metadata.title = value;
-        break;
-      case 'category':
-        metadata.category = value as KnowledgeCategory;
-        break;
-      case 'description':
-        metadata.description = value;
-        break;
-      case 'keywords':
-        metadata.keywords = value.split(',').map(k => k.trim()).filter(Boolean);
-        break;
-    }
-  }
-
-  return { metadata, body };
 }
 
 /**
@@ -68,8 +40,7 @@ function parseFrontmatter(content: string): { metadata: Partial<MarkdownMetadata
  */
 function slugFromFilename(filename: string): string {
   return filename
-    .replace(/\.md$/, '')
-    .replace(/\.markdown$/, '')
+    .replace(/\.json$/, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
@@ -115,7 +86,7 @@ function categoryFromPath(filePath: string, knowledgeBase: string): KnowledgeCat
 }
 
 /**
- * Scan a directory for markdown files recursively
+ * Scan a directory for JSON knowledge files recursively
  */
 function scanDirectory(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -127,7 +98,7 @@ function scanDirectory(dir: string): string[] {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...scanDirectory(fullPath));
-    } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown')) {
+    } else if (entry.name.endsWith('.json')) {
       files.push(fullPath);
     }
   }
@@ -136,40 +107,81 @@ function scanDirectory(dir: string): string[] {
 }
 
 /**
- * Ingest a single markdown file
+ * Ingest a single JSON knowledge file
  */
 async function ingestFile(
   filePath: string,
   knowledgeBase: string
 ): Promise<{ created: boolean; updated: boolean; error?: string }> {
   try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const { metadata, body } = parseFrontmatter(content);
+    const { data, errors: parseErrors } = parseJsonKnowledgeFile(filePath);
+    
+    if (parseErrors && parseErrors.length > 0) {
+      return { created: false, updated: false, error: `Schema validation failed: ${parseErrors.join('; ')}` };
+    }
 
-    const slug = metadata.slug || slugFromFilename(path.basename(filePath));
-    const category = metadata.category || categoryFromPath(filePath, knowledgeBase);
+    // Use id from JSON, or derive from filename
+    const slug = data.id || slugFromFilename(path.basename(filePath));
+    const category = (data.category as KnowledgeCategory) || categoryFromPath(filePath, knowledgeBase);
 
     if (!category) {
       return { created: false, updated: false, error: `Cannot determine category for ${filePath}` };
     }
 
-    const title = metadata.title || slugFromFilename(path.basename(filePath)).replace(/-/g, ' ');
-    const description = metadata.description || '';
-    const keywords = metadata.keywords || [];
-    const markdownContent = body.trim();
+    const title = data.title || slug.replace(/-/g, ' ');
+    const description = data.description || '';
+    const tags = data.tags || [];
+    const intents = data.intents || [];
+    const dependencies = data.dependencies || [];
+    const antiPatterns = data.anti_patterns || [];
+    const implementationSteps = data.implementation_steps || [];
+    const rules = data.rules || [];
+    const examples = data.examples || [];
+    const references = data.references || [];
+    const schemaVersion = data.metadata?.version || '1.0.0';
 
     // Check if document exists
     const existing = await db.knowledge.findUnique({ where: { slug } });
 
-    // Generate embedding
-    const embeddingText = [title, description, ...keywords, markdownContent.substring(0, 1000)].join(' ');
+    // Generate embedding from structured content
+    const embeddingText = buildEmbeddingText({
+      title,
+      description,
+      tags,
+      intents,
+      rules,
+      antiPatterns,
+      implementationSteps,
+    });
     const embedding = generateEmbedding(embeddingText);
 
     if (existing) {
-      // Update existing
-      const contentChanged = existing.markdownContent !== markdownContent ||
-        existing.title !== title ||
-        existing.description !== description;
+      // Check if content changed
+      const existingData = {
+        title: existing.title,
+        description: existing.description,
+        tags: existing.tags,
+        rules: existing.rules,
+        implementationSteps: existing.implementationSteps,
+        antiPatterns: existing.antiPatterns,
+      };
+      
+      const newData = {
+        title,
+        description,
+        tags: JSON.stringify(tags),
+        rules: JSON.stringify(rules),
+        implementationSteps: JSON.stringify(implementationSteps),
+        antiPatterns: JSON.stringify(antiPatterns),
+      };
+      
+      const contentChanged = 
+        existingData.title !== newData.title ||
+        existingData.description !== newData.description ||
+        existingData.tags !== newData.tags ||
+        existingData.rules !== newData.rules ||
+        existingData.implementationSteps !== newData.implementationSteps ||
+        existingData.antiPatterns !== newData.antiPatterns;
 
       if (contentChanged) {
         await db.knowledge.update({
@@ -178,9 +190,16 @@ async function ingestFile(
             title,
             category,
             description,
-            keywords: JSON.stringify(keywords),
-            markdownContent,
+            tags: JSON.stringify(tags),
+            intents: JSON.stringify(intents),
+            dependencies: JSON.stringify(dependencies),
+            antiPatterns: JSON.stringify(antiPatterns),
+            implementationSteps: JSON.stringify(implementationSteps),
+            rules: JSON.stringify(rules),
+            examples: JSON.stringify(examples),
+            references: JSON.stringify(references),
             embedding: JSON.stringify(embedding),
+            schemaVersion,
             version: { increment: 1 },
             isActive: true,
           },
@@ -198,9 +217,16 @@ async function ingestFile(
         title,
         category,
         description,
-        keywords: JSON.stringify(keywords),
-        markdownContent,
+        tags: JSON.stringify(tags),
+        intents: JSON.stringify(intents),
+        dependencies: JSON.stringify(dependencies),
+        antiPatterns: JSON.stringify(antiPatterns),
+        implementationSteps: JSON.stringify(implementationSteps),
+        rules: JSON.stringify(rules),
+        examples: JSON.stringify(examples),
+        references: JSON.stringify(references),
         embedding: JSON.stringify(embedding),
+        schemaVersion,
         version: 1,
       },
     });
@@ -212,7 +238,7 @@ async function ingestFile(
 }
 
 /**
- * Full ingestion pipeline - scan and index all markdown files
+ * Full ingestion pipeline - scan and index all JSON knowledge files
  */
 export async function ingestKnowledgeBase(knowledgeBasePath?: string): Promise<IngestionResult> {
   const knowledgeBase = knowledgeBasePath || path.join(process.cwd(), 'knowledge');
@@ -341,19 +367,34 @@ export async function ingestCategory(category: KnowledgeCategory, knowledgeBaseP
 }
 
 /**
- * Rebuild all embeddings
+ * Rebuild all embeddings using structured content
  */
 export async function rebuildAllEmbeddings(): Promise<number> {
   const documents = await db.knowledge.findMany({ where: { isActive: true } });
   let count = 0;
 
   for (const doc of documents) {
-    const embeddingText = [
-      doc.title,
-      doc.description,
-      ...JSON.parse(doc.keywords),
-      doc.markdownContent.substring(0, 1000),
-    ].join(' ');
+    let tags: string[] = [];
+    let intents: string[] = [];
+    let rules: string[] = [];
+    let antiPatterns: string[] = [];
+    let implementationSteps: string[] = [];
+
+    try { tags = JSON.parse(doc.tags); } catch { /* empty */ }
+    try { intents = JSON.parse(doc.intents); } catch { /* empty */ }
+    try { rules = JSON.parse(doc.rules); } catch { /* empty */ }
+    try { antiPatterns = JSON.parse(doc.antiPatterns); } catch { /* empty */ }
+    try { implementationSteps = JSON.parse(doc.implementationSteps); } catch { /* empty */ }
+
+    const embeddingText = buildEmbeddingText({
+      title: doc.title,
+      description: doc.description,
+      tags,
+      intents,
+      rules,
+      antiPatterns,
+      implementationSteps,
+    });
 
     const embedding = generateEmbedding(embeddingText);
 

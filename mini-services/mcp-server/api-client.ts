@@ -1,28 +1,32 @@
 // IndustryX MCP Server - API Client
 // HTTP client for communicating with the main app's REST API
-// Includes timeout and error recovery for production reliability
+// AI-Native: Returns structured JSON knowledge units, not markdown blobs
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
 const API_TIMEOUT_MS = 30000; // 30 second timeout for API calls
 
-// Types matching the main app's API responses
+// Types matching the main app's API responses (JSON-native)
 export interface KnowledgeDocumentSummary {
   id: string;
   slug: string;
   title: string;
   category: string;
   description: string;
-  keywords: string[];
+  tags: string[];
+  intents: string[];
+  dependencies: string[];
+  antiPatterns: string[];
+  implementationSteps: string[];
+  rules: string[];
+  examples: Array<{ name: string; description: string }>;
+  references: string[];
   version: number;
+  schemaVersion: string;
   accessCount: number;
   relevanceScore: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface KnowledgeDocumentFull extends KnowledgeDocumentSummary {
-  markdownContent: string;
 }
 
 export interface SearchResult {
@@ -31,13 +35,13 @@ export interface SearchResult {
   title: string;
   category: string;
   description: string;
+  tags: string[];
+  intents: string[];
   score: number;
-}
-
-export interface HybridSearchResult extends SearchResult {
   embeddingScore: number;
   keywordScore: number;
   categoryScore: number;
+  intentScore: number;
   usageWeight: number;
 }
 
@@ -123,8 +127,8 @@ export async function searchKnowledge(
 /**
  * Get a single knowledge document by slug or ID
  */
-export async function getDocument(slugOrId: string): Promise<{ document: KnowledgeDocumentFull }> {
-  return request<{ document: KnowledgeDocumentFull }>('GET', `/api/knowledge/${encodeURIComponent(slugOrId)}`);
+export async function getDocument(slugOrId: string): Promise<{ document: KnowledgeDocumentSummary }> {
+  return request<{ document: KnowledgeDocumentSummary }>('GET', `/api/knowledge/${encodeURIComponent(slugOrId)}`);
 }
 
 /**
