@@ -1,12 +1,13 @@
-// IndustryX MCP Server - Main Entry Point
+// IndustryX MCP Server - Skills Provider
 // Implements the Model Context Protocol over SSE transport
+// This is a SKILLS PROVIDER - other AI agents connect here to access knowledge
 
 import { MCP_TOOLS, executeTool } from './tools';
 import { healthCheck } from './api-client';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 const PORT = 3002;
-const SERVER_NAME = 'industryx-knowledge-mcp';
+const SERVER_NAME = 'industryx-knowledge-provider';
 const SERVER_VERSION = '1.0.0';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -110,7 +111,6 @@ async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> 
       }
 
       case 'notifications/initialized': {
-        // Client acknowledges initialization - notification, no response needed
         if (id !== undefined && id !== null) {
           return createResponse(id, {});
         }
@@ -135,7 +135,6 @@ async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> 
           return createError(id, -32602, 'Missing required parameter: name');
         }
 
-        // Check if tool exists
         const toolExists = MCP_TOOLS.some((t) => t.name === toolName);
         if (!toolExists) {
           return createError(
@@ -178,14 +177,13 @@ const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
 
-    // CORS headers for all responses
+    // CORS headers
     const corsHeaders: Record<string, string> = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
-    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
@@ -199,11 +197,9 @@ const server = Bun.serve({
 
       const stream = new ReadableStream({
         start(controller) {
-          // Send the endpoint event so the client knows where to POST messages
           const endpointEvent = `event: endpoint\ndata: /messages?sessionId=${sessionId}\n\n`;
           controller.enqueue(encoder.encode(endpointEvent));
 
-          // Send periodic keepalive pings
           const keepalive = setInterval(() => {
             if (closed) {
               clearInterval(keepalive);
@@ -256,7 +252,6 @@ const server = Bun.serve({
         );
       }
 
-      // Validate JSON-RPC structure
       if (body.jsonrpc !== '2.0') {
         const errorResponse = createError(null, -32600, 'Invalid Request: jsonrpc must be "2.0"');
         return new Response(JSON.stringify(errorResponse), {
@@ -265,16 +260,13 @@ const server = Bun.serve({
         });
       }
 
-      // Handle the request
       const response = await handleJsonRpc(body);
 
-      // For tools/call, also send the result via SSE
+      // Also send via SSE if it's a tool call
       if (body.method === 'tools/call' && sessionId) {
         sseManager.sendMessage(sessionId, JSON.stringify(response));
       }
 
-      // Return the response in the HTTP body
-      // Only return HTTP response if this is not a notification (has an id)
       if (body.id !== undefined && body.id !== null) {
         return new Response(JSON.stringify(response), {
           status: 200,
@@ -282,7 +274,6 @@ const server = Bun.serve({
         });
       }
 
-      // Notifications don't get an HTTP response body
       return new Response(null, { status: 202, headers: corsHeaders });
     }
 
@@ -300,22 +291,37 @@ const server = Bun.serve({
           status: apiHealthy ? 'healthy' : 'degraded',
           server: SERVER_NAME,
           version: SERVER_VERSION,
+          role: 'skills-provider',
+          description: 'MCP Skills Provider for IndustryX Knowledge Base. Connect your AI agent to access skills, SOPs, architecture docs, and more.',
           apiConnection: apiHealthy ? 'connected' : 'disconnected',
           activeSSEConnections: sseManager.getConnectionCount(),
           tools: MCP_TOOLS.map((t) => t.name),
+          mcpConfig: {
+            transport: 'SSE',
+            sseEndpoint: '/sse',
+            messagesEndpoint: '/messages',
+            protocolVersion: '2024-11-05',
+          },
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    // ─── Root: Basic info ──────────────────────────────────────────
+    // ─── Root: Server info ─────────────────────────────────────────
     if (url.pathname === '/') {
       return new Response(
         JSON.stringify({
           name: SERVER_NAME,
           version: SERVER_VERSION,
-          description: 'MCP Server for IndustryX Knowledge Base',
+          role: 'skills-provider',
+          description: 'IndustryX Knowledge MCP Server - A Skills Provider for AI Agents',
+          howToConnect: {
+            claudeCode: 'Add to your claude_desktop_config.json: { "mcpServers": { "industryx": { "url": "http://<host>:3002/sse" } } }',
+            cursor: 'Add to your MCP settings with SSE transport pointing to /sse endpoint',
+            generic: 'Connect via SSE to /sse, send JSON-RPC messages to /messages?sessionId=<id>',
+          },
           protocol: 'Model Context Protocol (SSE transport)',
+          protocolVersion: '2024-11-05',
           endpoints: {
             sse: '/sse',
             messages: '/messages',
@@ -341,6 +347,7 @@ const server = Bun.serve({
 console.log('');
 console.log('===============================================================');
 console.log(`  ${SERVER_NAME} v${SERVER_VERSION}`);
+console.log('  IndustryX Knowledge Skills Provider');
 console.log('===============================================================');
 console.log(`  Server running on http://localhost:${PORT}`);
 console.log(`  SSE endpoint:   http://localhost:${PORT}/sse`);
@@ -353,5 +360,9 @@ MCP_TOOLS.forEach((tool) => {
 });
 console.log('');
 console.log(`  API Base URL:   ${process.env.API_BASE_URL || 'http://localhost:3000'}`);
+console.log('');
+console.log('  Connect your AI agent via MCP SSE transport:');
+console.log('    Claude Code: Add to claude_desktop_config.json');
+console.log('    Cursor:      Add to MCP settings');
 console.log('===============================================================');
 console.log('');

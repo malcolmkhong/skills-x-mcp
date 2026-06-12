@@ -1,7 +1,9 @@
 // IndustryX MCP Server - API Client
 // HTTP client for communicating with the main app's REST API
+// Includes timeout and error recovery for production reliability
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
+const API_TIMEOUT_MS = 30000; // 30 second timeout for API calls
 
 // Types matching the main app's API responses
 export interface KnowledgeDocumentSummary {
@@ -51,33 +53,41 @@ export interface ContextBuildResponse {
   }>;
 }
 
-// Helper for making HTTP requests
+// Helper for making HTTP requests with timeout
 async function request<T>(
   method: string,
   path: string,
   body?: Record<string, unknown>
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
-  const options: RequestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-  if (body) {
-    options.body = JSON.stringify(body);
+  try {
+    const options: RequestInit = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+    };
+
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`API request failed (${response.status}): ${errorText}`);
+    }
+
+    return response.json() as Promise<T>;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(`API request failed (${response.status}): ${errorText}`);
-  }
-
-  return response.json() as Promise<T>;
 }
 
 /**
@@ -139,10 +149,14 @@ export async function buildContext(
  */
 export async function healthCheck(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/knowledge`, {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${API_BASE_URL}/api/knowledge/stats`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     return response.ok;
   } catch {
     return false;
