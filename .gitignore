@@ -52,3 +52,10 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Tool results (agent artifacts)
+tool-results/
+
+# DB files
+*.db
+*.db-journal
