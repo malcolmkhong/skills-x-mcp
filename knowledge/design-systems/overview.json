@@ -6,39 +6,39 @@
   "skills": [
     {
       "name": "design-token",
-      "description": "Define and organize design tokens with naming conventions and usage guidance."
+      "description": "Define and organize design tokens (color, spacing, typography, elevation) with naming conventions and usage guidance."
     },
     {
       "name": "component-spec",
-      "description": "Write a detailed component specification including props, states, variants, and accessibility."
+      "description": "Write a detailed component specification including props, states, variants, accessibility requirements, and usage guidelines."
     },
     {
       "name": "pattern-library",
-      "description": "Structure a pattern library entry with problem context, solution, and examples."
+      "description": "Structure a pattern library entry with problem context, solution pattern, usage examples, and related patterns."
     },
     {
       "name": "naming-convention",
-      "description": "Establish naming convention systems for design elements, components, and tokens."
+      "description": "Establish a naming convention system for design elements, components, and tokens with clear rules and examples."
     },
     {
       "name": "accessibility-audit",
-      "description": "Conduct an accessibility audit against WCAG guidelines with severity ratings."
+      "description": "Conduct a comprehensive accessibility audit against WCAG guidelines with severity ratings and remediation steps."
     },
     {
       "name": "theming-system",
-      "description": "Design a theming architecture for brand variants, dark mode, and high-contrast."
+      "description": "Design a theming architecture that supports brand variants, dark mode, and high-contrast modes with token mapping."
     },
     {
       "name": "icon-system",
-      "description": "Create an icon system specification covering grid, sizing, naming, and categories."
+      "description": "Create an icon system specification covering grid, sizing, naming, categories, and implementation guidance."
     },
     {
       "name": "documentation-template",
-      "description": "Generate structured documentation templates for design system artifacts."
+      "description": "Generate structured documentation templates for components, patterns, or guidelines within a design system."
     },
     {
       "name": "motion-system",
-      "description": "Define a motion system with duration tokens, easing vocabulary, and reduced-motion handling."
+      "description": "Define a motion system with duration tokens, easing vocabulary, and reduced-motion handling for consistent animation across a product."
     },
     {
       "name": "design-system-governance",
@@ -52,7 +52,7 @@
   "commands": [
     {
       "name": "audit-system",
-      "description": "Audit a design system for consistency, completeness, and accessibility."
+      "description": "Run a comprehensive audit of an existing design system for consistency, completeness, and accessibility."
     },
     {
       "name": "create-component",

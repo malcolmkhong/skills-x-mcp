@@ -38,6 +38,8 @@
     }
   ],
   "categories": ["Navigation", "Input", "Display", "Feedback", "Onboarding"],
+  "antiPatternGuidance": "Document anti-patterns alongside each pattern — explain why the anti-pattern fails and how the correct pattern solves it. This prevents teams from repeating common mistakes.",
+  "relationshipTypes": ["Similar to", "Commonly combined with", "Builds upon", "Alternative to"],
   "bestPractices": [
     "Focus on problem first, solution second",
     "Include real examples and anti-patterns",

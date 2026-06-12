@@ -37,6 +37,12 @@
       "description": "Do/don't examples, content rules, related components"
     }
   ],
+  "variantTypes": {
+    "size": ["sm", "md", "lg"],
+    "style": ["primary", "secondary", "ghost"],
+    "layout": ["horizontal", "vertical", "compact"]
+  },
+  "interactiveStates": ["default", "hover", "focus", "active", "disabled", "loading", "error"],
   "bestPractices": [
     "Write for both designers and developers",
     "Include examples for every variant and state",
