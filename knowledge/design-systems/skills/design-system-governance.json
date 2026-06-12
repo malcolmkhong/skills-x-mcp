@@ -1,0 +1,85 @@
+{
+  "name": "design-system-governance",
+  "description": "Define how a design system evolves — contribution models, versioning, change management, and deprecation.",
+  "role": "You are an expert in the operational and organizational structures that keep a design system healthy over time.",
+  "whatYouDo": "You define the processes, roles, and decision frameworks that allow a design system to evolve without fragmenting — so contributors know how to participate, consumers know how to depend on it, and the system stays coherent as the product scales.",
+  "coreGovernanceQuestions": [
+    "Who owns the system? Dedicated team, federated contributors, or hybrid?",
+    "Who can contribute? Anyone, or only the core team?",
+    "How are changes proposed and decided? Request process, RFC, or open pull requests?",
+    "How is the system versioned? How do consumers know what changed?",
+    "How are breaking changes handled? How much notice, what migration support?",
+    "What gets deprecated, and how? Timeline and removal process?",
+    "How is quality maintained? Review process before merging new components?"
+  ],
+  "ownershipModels": {
+    "centralized": {
+      "description": "A dedicated design system team owns all components. Consumers submit requests; the core team builds and maintains.",
+      "pros": "High consistency, high quality",
+      "cons": "Can become a bottleneck; slow to respond to product team needs",
+      "bestFor": "Large orgs with budget for a dedicated team"
+    },
+    "federated": {
+      "description": "Any product team can contribute components. A lightweight governance layer reviews and accepts contributions.",
+      "pros": "Fast to grow; reflects actual product needs",
+      "cons": "Requires strong review standards to maintain quality",
+      "bestFor": "Mid-size orgs with mature design practice"
+    },
+    "hybrid": {
+      "description": "Core team owns foundational components; product teams own domain-specific components with support from core.",
+      "pros": "Balances quality with velocity",
+      "cons": "Requires clear ownership boundaries ('core' vs 'extended' library)",
+      "bestFor": "Most common model in practice"
+    }
+  },
+  "contributionProcess": [
+    { "step": "Request/Proposal", "description": "Product team identifies a need; submits a request with use case and context" },
+    { "step": "Triage", "description": "Core team assesses: is this generalizable? Does something similar exist? What's the priority?" },
+    { "step": "Design", "description": "Component designed and specced (states, variants, accessibility, tokens)" },
+    { "step": "Review", "description": "Design critique + accessibility review + engineering feasibility" },
+    { "step": "Build and test", "description": "Implementation, documentation, accessibility testing" },
+    { "step": "Release", "description": "Versioned release with changelog entry" },
+    { "step": "Communication", "description": "Announce to consumers with migration notes if applicable" }
+  ],
+  "versioning": {
+    "model": "Semantic Versioning (semver)",
+    "types": [
+      { "type": "Patch (1.0.x)", "when": "Bug fixes, documentation corrections, no API changes" },
+      { "type": "Minor (1.x.0)", "when": "New components or variants added; backwards compatible" },
+      { "type": "Major (x.0.0)", "when": "Breaking changes: renamed props, removed components, changed behavior" }
+    ],
+    "guidelines": [
+      "Tag every release in version control",
+      "Maintain a public changelog — consumers need to know what changed and why",
+      "Keep major version bumps rare and well-communicated"
+    ]
+  },
+  "deprecationProcess": [
+    "Announce deprecation with the release that introduces the replacement",
+    "Provide a migration guide: what replaces the deprecated item, with code examples",
+    "Keep deprecated items functional for at least one minor version cycle before removal",
+    "Use in-product warnings (console warnings, Figma annotations) to surface deprecations to consumers",
+    "Communicate timelines clearly: 'Deprecated in 2.3, removed in 3.0 (Q3)'"
+  ],
+  "breakingChangePolicy": [
+    "Give consumers a migration path (a codemod, a replacement component, a spec change)",
+    "Document the change in the changelog with 'BREAKING:' prefix",
+    "Provide a migration guide in docs",
+    "Consider a compatibility shim for critical consumers who can't migrate immediately"
+  ],
+  "qualityStandards": [
+    "Documented props, variants, and states",
+    "Accessibility review (WCAG AA minimum, keyboard navigation, screen reader tested)",
+    "Responsive behavior specified",
+    "Design token usage (no hardcoded values)",
+    "Usage guidance (when to use, when not to use)",
+    "Design file component (Figma or equivalent) synced with code"
+  ],
+  "bestPractices": [
+    "Publish a clear contribution guide so product teams know how to participate",
+    "Hold regular office hours or open reviews — governance works better as a conversation than a ticket queue",
+    "Review adoption metrics (which components are used most/least) to guide investment",
+    "Document decisions as well as outcomes — why a component works the way it does prevents revisiting settled debates",
+    "Treat governance as a product: it has users (contributors and consumers), and it needs iteration"
+  ]
+}

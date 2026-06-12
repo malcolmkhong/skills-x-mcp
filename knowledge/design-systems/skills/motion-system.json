@@ -1,0 +1,52 @@
+{
+  "name": "motion-system",
+  "description": "Define a motion system with duration tokens, easing vocabulary, and reduced-motion handling for consistent animation across a product.",
+  "role": "You are an expert in defining motion as a systematic design token layer, not a collection of one-off animations.",
+  "whatYouDo": "You define the motion vocabulary for a product — duration scales, easing curves, choreography rules, and accessibility handling — so animation decisions are consistent, purposeful, and implementable by any team.",
+  "whyMotionSystem": "Without a system, animation decisions are made ad hoc: each component has its own duration and easing, transitions feel inconsistent, and there's no shared language between design and engineering. A motion system makes animation decisions as deliberate as color or type choices.",
+  "durationTokens": [
+    { "token": "duration-instant", "value": "50ms", "use": "State changes that must feel immediate (checkbox tick, toggle)" },
+    { "token": "duration-fast", "value": "100ms", "use": "Small element transitions (tooltip appear, chip dismiss)" },
+    { "token": "duration-normal", "value": "200ms", "use": "Default for most transitions (dropdown open, focus ring)" },
+    { "token": "duration-moderate", "value": "300ms", "use": "Medium element transitions (modal entry, panel slide)" },
+    { "token": "duration-slow", "value": "400ms", "use": "Page-level transitions, complex choreography" },
+    { "token": "duration-deliberate", "value": "600ms", "use": "Intentionally paced, high-emphasis moments (onboarding reveal)" }
+  ],
+  "easingTokens": [
+    { "token": "ease-standard", "curve": "cubic-bezier(0.2, 0, 0, 1)", "use": "Most UI transitions — elements moving between states" },
+    { "token": "ease-decelerate", "curve": "cubic-bezier(0, 0, 0.2, 1)", "use": "Elements entering the screen" },
+    { "token": "ease-accelerate", "curve": "cubic-bezier(0.3, 0, 1, 0.3)", "use": "Elements leaving the screen" },
+    { "token": "ease-spring", "curve": "spring / cubic-bezier(0.34, 1.56, 0.64, 1)", "use": "Playful or tactile interactions (FAB expand, drawer bounce)" },
+    { "token": "ease-linear", "curve": "linear", "use": "Looping animations only (progress spinners, shimmer)" }
+  ],
+  "choreographyRules": {
+    "stagger": "Related elements entering together stagger by 30–50ms; lead with the most important",
+    "coordination": "Elements in the same semantic group use the same duration and easing",
+    "sequenceTotal": "Total duration of a staggered sequence should not exceed 500ms",
+    "directionConsistency": "If elements slide in from the right, related outgoing elements slide out to the left"
+  },
+  "reducedMotion": {
+    "disable": "Remove sliding, scaling, and rotation animations",
+    "replace": "Substitute instant state changes or simple opacity fades (opacity transitions are generally acceptable)",
+    "preserve": "Keep animations that convey essential state information (loading spinners, progress)",
+    "tokenApproach": "Define a duration-instant (0ms or 1ms) override for all duration tokens under reduced-motion, applied globally"
+  },
+  "implementation": [
+    "Define duration and easing values as CSS custom properties (or platform-equivalent tokens)",
+    "Apply reduced-motion overrides at the :root level within a prefers-reduced-motion query",
+    "Document each token with: name, value, use case, and a live example",
+    "Include motion tokens in the design token export pipeline — they should live alongside color and spacing tokens"
+  ],
+  "motionPrinciples": [
+    "Purposeful — every animation communicates a state change or relationship",
+    "Quick — UI motion is never slow; we respect users' time",
+    "Physical — motion follows natural physics; decelerate on entry, accelerate on exit",
+    "Accessible — all motion respects user preferences and never causes discomfort"
+  ],
+  "bestPractices": [
+    "Start with fewer tokens and add only when a new use case genuinely doesn't fit existing values",
+    "Test all motion on low-powered devices — what's smooth in design tools can be janky in production",
+    "Include motion in design QA checklists alongside color and spacing",
+    "Document what should NOT animate as clearly as what should — not everything moves"
+  ]
+}

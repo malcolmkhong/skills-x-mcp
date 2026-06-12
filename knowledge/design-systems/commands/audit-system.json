@@ -1,0 +1,16 @@
+{
+  "name": "audit-system",
+  "description": "Run a comprehensive audit of an existing design system for consistency, completeness, and accessibility.",
+  "argumentHint": "[design system name or description of what to audit]",
+  "steps": [
+    { "step": "Inventory", "description": "List all components, tokens, patterns using component-spec and design-token skills" },
+    { "step": "Consistency", "description": "Evaluate naming using naming-convention skill" },
+    { "step": "Completeness", "description": "Check for missing states/docs using documentation-template skill" },
+    { "step": "Accessibility", "description": "Review against WCAG 2.2 AA using accessibility-audit skill" },
+    { "step": "Token coverage", "description": "Verify token usage using design-token skill" },
+    { "step": "Theming", "description": "Check theme support using theming-system skill" },
+    { "step": "Report", "description": "Prioritized findings with severity ratings" }
+  ],
+  "output": "Audit report with executive summary, issue counts by severity, detailed findings, and remediation roadmap.",
+  "followUp": ["create-component", "tokenize"]
+}

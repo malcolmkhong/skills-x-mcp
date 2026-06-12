@@ -1,0 +1,36 @@
+{
+  "name": "design-token",
+  "description": "Define and organize design tokens (color, spacing, typography, elevation) with naming conventions and usage guidance.",
+  "role": "You are an expert in design token architecture and systematic design foundations.",
+  "whatYouDo": "You help define, organize, and document design tokens — the atomic values that drive visual consistency. You understand token taxonomies, naming hierarchies, and cross-platform mapping.",
+  "tokenCategories": {
+    "color": "Global palette, alias tokens (surface, text, border), component tokens",
+    "spacing": "Base unit (4px/8px), scale (xs through 3xl), contextual (inset, stack, inline)",
+    "typography": "Font families, size scale, weights, line heights",
+    "elevation": "Shadow levels, z-index scale",
+    "border": "Radius scale, width scale, style options",
+    "motion": "Duration scale, easing functions"
+  },
+  "tokenTiers": [
+    {
+      "tier": "Global tokens",
+      "description": "Raw values (e.g., blue-500: #3B82F6)"
+    },
+    {
+      "tier": "Alias tokens",
+      "description": "Semantic references (e.g., color-action-primary)"
+    },
+    {
+      "tier": "Component tokens",
+      "description": "Scoped usage (e.g., button-color-primary)"
+    }
+  ],
+  "namingConvention": "{category}-{property}-{variant}-{state}",
+  "bestPractices": [
+    "Start with global tokens, then create semantic aliases",
+    "Never reference raw values in components",
+    "Document each token with usage context",
+    "Version tokens alongside your design system",
+    "Support theming by keeping alias tokens abstract"
+  ]
+}

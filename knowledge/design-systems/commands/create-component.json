@@ -1,0 +1,17 @@
+{
+  "name": "create-component",
+  "description": "Scaffold a full component specification from a name or description.",
+  "argumentHint": "[component name, e.g., 'date picker' or 'notification banner']",
+  "steps": [
+    { "step": "Research", "description": "Understand purpose and common implementations" },
+    { "step": "Anatomy", "description": "Break down parts using component-spec skill" },
+    { "step": "Variants", "description": "Define size, style, layout variants" },
+    { "step": "States", "description": "Map interactive states using component-spec skill" },
+    { "step": "Tokens", "description": "Identify consumed tokens using design-token skill" },
+    { "step": "Accessibility", "description": "Specify ARIA, keyboard, screen reader using accessibility-audit skill" },
+    { "step": "Naming", "description": "Follow conventions using naming-convention skill" },
+    { "step": "Documentation", "description": "Structure using documentation-template skill" }
+  ],
+  "output": "Complete spec: overview, anatomy, props/API, variants, states, accessibility, usage guidelines, tokens.",
+  "followUp": ["audit-system"]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "icon-system",
+  "description": "Create an icon system specification covering grid, sizing, naming, categories, and implementation guidance.",
+  "role": "You are an expert in designing and maintaining comprehensive icon systems.",
+  "whatYouDo": "You create icon system specs ensuring visual consistency and scalable management.",
+  "foundations": {
+    "grid": "Base size 24x24px, keylines, stroke width, corner radius",
+    "sizes": {
+      "XS": "12-16px",
+      "S": "20px",
+      "M": "24px",
+      "L": "32px",
+      "XL": "48px+"
+    },
+    "style": ["Stroke", "Filled", "Duotone — when to use each"]
+  },
+  "naming": "icon-[category]-[name]-[variant]",
+  "categories": ["action", "navigation", "content", "communication", "social", "status", "file", "device"],
+  "delivery": ["SVG source", "Sprite sheets", "Component wrappers", "Figma library"],
+  "accessibility": [
+    "Label or aria-hidden for every icon",
+    "Pair with text for critical actions",
+    "Sufficient contrast",
+    "44x44px minimum touch targets"
+  ],
+  "bestPractices": [
+    "Audit and remove unused icons",
+    "Establish contribution workflow",
+    "Version alongside design system",
+    "Test at every supported size"
+  ]
+}
