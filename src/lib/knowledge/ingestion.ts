@@ -104,13 +104,17 @@ function categoryFromPath(filePath: string, knowledgeBase: string): KnowledgeCat
   const secondDir = parts.length > 2 ? parts[1] : undefined;
   
   const categoryMap: Record<string, KnowledgeCategory> = {
-    'skills': 'skills',
+    // Top-level domain directories
     'design-systems': 'design-systems',
-    'sops': 'sops',
-    'architecture': 'architecture',
     'security': 'security',
     'economy': 'economy',
+    'engineering': 'engineering',
+    // Nested under engineering/
+    'architecture': 'architecture',
     'deployment': 'deployment',
+    'sops': 'sops',
+    // Legacy / future domain directories
+    'skills': 'economy',
     'ui-standards': 'ui-standards',
     'ui_standards': 'ui-standards',
     'backend-standards': 'backend-standards',
@@ -135,7 +139,10 @@ function categoryFromPath(filePath: string, knowledgeBase: string): KnowledgeCat
 
   // Try first directory first
   if (categoryMap[firstDir]) return categoryMap[firstDir];
-  
+
+  // Try second directory (for nested paths like engineering/architecture/...)
+  if (secondDir && categoryMap[secondDir]) return categoryMap[secondDir];
+
   return undefined;
 }
 

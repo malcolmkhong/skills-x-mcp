@@ -471,7 +471,7 @@ export default function LandingPage() {
           {/* JSON Schema Preview */}
           <SlideIn direction="right" delay={0.2} className="mt-10 max-w-2xl mx-auto border border-border/50 rounded-xl">
             <div className="p-5">
-              <h3 className="font-mono text-xs font-semibold text-emerald-600 mb-3">knowledge/skills/ui-ux-pro-max.json</h3>
+              <h3 className="font-mono text-xs font-semibold text-emerald-600 mb-3">knowledge/design-systems/skills/component-spec.json</h3>
               <pre className="text-xs font-mono text-muted-foreground leading-relaxed overflow-x-auto" aria-label="Example JSON knowledge unit schema">
 {`{
   "slug": "ui-ux-pro-max",

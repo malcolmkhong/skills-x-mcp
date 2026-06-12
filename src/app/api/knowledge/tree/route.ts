@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { readFile, readdir } from 'fs/promises'
-import { join } from 'path'
+import { join, relative } from 'path'
 
 const KNOWLEDGE_DIR = join(process.cwd(), 'knowledge')
 const CATEGORIES_FILE = join(KNOWLEDGE_DIR, 'categories.json')
@@ -40,74 +40,54 @@ interface CategoryNode {
   items?: string[]
 }
 
-// ─── Auto-discovery ─────────────────────────────────────────────────────────
+// ─── Generic recursive JSON discovery ───────────────────────────────────────
 
-async function discoverDesignSystemSkills(): Promise<Map<string, SkillData>> {
-  const skills = new Map<string, SkillData>()
-  const skillsDir = join(KNOWLEDGE_DIR, 'design-systems', 'skills')
-  try {
-    const files = await readdir(skillsDir)
-    for (const file of files) {
-      if (!file.endsWith('.json')) continue
-      const name = file.replace('.json', '')
-      const content = await readFile(join(skillsDir, file), 'utf-8')
-      const data = JSON.parse(content)
-      skills.set(name, { ...data, _source: 'design-systems/skills' })
-    }
-  } catch {
-    // directory may not exist
-  }
-  return skills
-}
+/**
+ * Recursively scan a directory for .json files and return a Map<slug, SkillData>.
+ * The slug is the filename without .json. Each entry gets _source and _domain metadata.
+ */
+async function discoverJsonFiles(dir: string, baseDir: string = KNOWLEDGE_DIR): Promise<Map<string, SkillData>> {
+  const result = new Map<string, SkillData>()
 
-async function discoverDesignSystemCommands(): Promise<Map<string, SkillData>> {
-  const commands = new Map<string, SkillData>()
-  const commandsDir = join(KNOWLEDGE_DIR, 'design-systems', 'commands')
-  try {
-    const files = await readdir(commandsDir)
-    for (const file of files) {
-      if (!file.endsWith('.json')) continue
-      const name = file.replace('.json', '')
-      const content = await readFile(join(commandsDir, file), 'utf-8')
-      const data = JSON.parse(content)
-      commands.set(name, { ...data, _source: 'design-systems/commands' })
-    }
-  } catch {
-    // directory may not exist
-  }
-  return commands
-}
-
-async function discoverRootKnowledge(): Promise<Map<string, SkillData>> {
-  const knowledge = new Map<string, SkillData>()
-
-  const domains = ['architecture', 'security', 'economy', 'skills', 'sops', 'deployment']
-  for (const domain of domains) {
-    const domainDir = join(KNOWLEDGE_DIR, domain)
+  async function scan(currentDir: string) {
+    let entries
     try {
-      const files = await readdir(domainDir)
-      for (const file of files) {
-        if (!file.endsWith('.json')) continue
-        const name = file.replace('.json', '')
-        const content = await readFile(join(domainDir, file), 'utf-8')
-        const data = JSON.parse(content)
-        knowledge.set(name, { ...data, _source: `${domain}/${name}`, _domain: domain })
-      }
+      entries = await readdir(currentDir, { withFileTypes: true })
     } catch {
-      // directory may not exist
+      return
+    }
+
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry.name)
+      if (entry.isDirectory()) {
+        await scan(fullPath)
+      } else if (entry.name.endsWith('.json')) {
+        // Skip metadata files
+        if (['plugin.json', 'overview.json', 'categories.json', 'package.json'].includes(entry.name)) continue
+
+        const name = entry.name.replace('.json', '')
+        try {
+          const content = await readFile(fullPath, 'utf-8')
+          const data = JSON.parse(content)
+          const relPath = relative(baseDir, fullPath)
+          const domainPart = relPath.split('/')[0] || ''
+          result.set(name, { ...data, _source: relPath, _domain: domainPart })
+        } catch {
+          // Skip unparseable files
+        }
+      }
     }
   }
 
-  return knowledge
+  await scan(dir)
+  return result
 }
 
 // ─── Build tree ─────────────────────────────────────────────────────────────
 
 function buildTree(
   categories: CategoryNode[],
-  dsSkills: Map<string, SkillData>,
-  dsCommands: Map<string, SkillData>,
-  rootKnowledge: Map<string, SkillData>,
+  allSkills: Map<string, SkillData>,
   parentPath: string[] = []
 ): TreeNode[] {
   return categories.map(cat => {
@@ -122,24 +102,15 @@ function buildTree(
     }
 
     if (cat.children && cat.children.length > 0) {
-      node.children = buildTree(cat.children, dsSkills, dsCommands, rootKnowledge, currentPath)
+      node.children = buildTree(cat.children, allSkills, currentPath)
     }
 
     if (cat.items && cat.items.length > 0) {
       const childNodes: TreeNode[] = node.children || []
 
       for (const itemName of cat.items) {
-        let skillData = dsSkills.get(itemName)
-        let itemType: 'skill' | 'command' = 'skill'
-
-        if (!skillData) {
-          skillData = dsCommands.get(itemName)
-          if (skillData) itemType = 'command'
-        }
-
-        if (!skillData) {
-          skillData = rootKnowledge.get(itemName)
-        }
+        const skillData = allSkills.get(itemName)
+        const itemType: 'skill' | 'command' = skillData && isCommandData(skillData) ? 'command' : 'skill'
 
         const label = skillData?.title || skillData?.name || itemName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
@@ -158,6 +129,10 @@ function buildTree(
 
     return node
   })
+}
+
+function isCommandData(data: SkillData): boolean {
+  return Array.isArray(data.steps) && typeof data.output === 'string'
 }
 
 // ─── Find uncategorized skills ──────────────────────────────────────────────
@@ -180,36 +155,28 @@ function findCategorizedIds(categories: CategoryNode[]): Set<string> {
 
 function searchSkills(
   query: string,
-  dsSkills: Map<string, SkillData>,
-  dsCommands: Map<string, SkillData>,
-  rootKnowledge: Map<string, SkillData>
+  allSkills: Map<string, SkillData>
 ): Array<{ name: string; data: SkillData; matchField: string }> {
   const q = query.toLowerCase()
   const results: Array<{ name: string; data: SkillData; matchField: string }> = []
 
-  const searchMap = (map: Map<string, SkillData>) => {
-    for (const [name, data] of map) {
-      if (data.name?.toLowerCase().includes(q)) {
-        results.push({ name, data, matchField: 'name' })
-      } else if (data.title?.toLowerCase().includes(q)) {
-        results.push({ name, data, matchField: 'title' })
-      } else if (data.description?.toLowerCase().includes(q)) {
-        results.push({ name, data, matchField: 'description' })
-      } else if (data.role?.toLowerCase().includes(q)) {
-        results.push({ name, data, matchField: 'role' })
-      } else if (data.whatYouDo?.toLowerCase().includes(q)) {
-        results.push({ name, data, matchField: 'whatYouDo' })
-      } else if (Array.isArray(data.tags) && data.tags.some((t: string) => t.toLowerCase().includes(q))) {
-        results.push({ name, data, matchField: 'tags' })
-      } else if (Array.isArray(data.intents) && data.intents.some((i: string) => i.toLowerCase().includes(q))) {
-        results.push({ name, data, matchField: 'intents' })
-      }
+  for (const [name, data] of allSkills) {
+    if (data.name?.toLowerCase().includes(q)) {
+      results.push({ name, data, matchField: 'name' })
+    } else if (data.title?.toLowerCase().includes(q)) {
+      results.push({ name, data, matchField: 'title' })
+    } else if (data.description?.toLowerCase().includes(q)) {
+      results.push({ name, data, matchField: 'description' })
+    } else if (data.role?.toLowerCase().includes(q)) {
+      results.push({ name, data, matchField: 'role' })
+    } else if (data.whatYouDo?.toLowerCase().includes(q)) {
+      results.push({ name, data, matchField: 'whatYouDo' })
+    } else if (Array.isArray(data.tags) && data.tags.some((t: string) => t.toLowerCase().includes(q))) {
+      results.push({ name, data, matchField: 'tags' })
+    } else if (Array.isArray(data.intents) && data.intents.some((i: string) => i.toLowerCase().includes(q))) {
+      results.push({ name, data, matchField: 'intents' })
     }
   }
-
-  searchMap(dsSkills)
-  searchMap(dsCommands)
-  searchMap(rootKnowledge)
 
   const seen = new Set<string>()
   return results.filter(r => {
@@ -227,14 +194,11 @@ export async function GET(request: Request) {
     const search = searchParams.get('q')
     const skillName = searchParams.get('skill')
 
-    const [dsSkills, dsCommands, rootKnowledge] = await Promise.all([
-      discoverDesignSystemSkills(),
-      discoverDesignSystemCommands(),
-      discoverRootKnowledge(),
-    ])
+    // Single recursive scan discovers ALL JSON knowledge files
+    const allSkills = await discoverJsonFiles(KNOWLEDGE_DIR)
 
     if (skillName) {
-      const data = dsSkills.get(skillName) || dsCommands.get(skillName) || rootKnowledge.get(skillName)
+      const data = allSkills.get(skillName)
       if (!data) {
         return NextResponse.json({ error: 'Skill not found' }, { status: 404 })
       }
@@ -242,25 +206,19 @@ export async function GET(request: Request) {
     }
 
     if (search) {
-      const results = searchSkills(search, dsSkills, dsCommands, rootKnowledge)
+      const results = searchSkills(search, allSkills)
       return NextResponse.json({ results })
     }
 
     const categoriesContent = await readFile(CATEGORIES_FILE, 'utf-8')
     const categoriesConfig: CategoriesConfig = JSON.parse(categoriesContent)
 
-    const tree = buildTree(
-      categoriesConfig.categories,
-      dsSkills,
-      dsCommands,
-      rootKnowledge,
-    )
+    const tree = buildTree(categoriesConfig.categories, allSkills)
 
     const categorizedIds = findCategorizedIds(categoriesConfig.categories)
-    const allDiscovered = new Map([...dsSkills, ...dsCommands, ...rootKnowledge])
     const uncategorized: TreeNode[] = []
 
-    for (const [name, data] of allDiscovered) {
+    for (const [name, data] of allSkills) {
       if (!categorizedIds.has(name)) {
         const label = data.title || data.name || name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
         uncategorized.push({
@@ -286,17 +244,12 @@ export async function GET(request: Request) {
       })
     }
 
-    const totalSkills = dsSkills.size + dsCommands.size + rootKnowledge.size
-
     return NextResponse.json({
       tree,
       stats: {
-        totalSkills,
+        totalSkills: allSkills.size,
         totalCategorized: categorizedIds.size,
         totalUncategorized: uncategorized.length,
-        dsSkills: dsSkills.size,
-        dsCommands: dsCommands.size,
-        rootKnowledge: rootKnowledge.size,
         plugins: 1,
       },
     })

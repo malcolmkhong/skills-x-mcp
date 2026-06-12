@@ -20,19 +20,21 @@ export type NavTabId = typeof NAV_TABS[number]['id']
 // ─── Categories ──────────────────────────────────────────────────────────────
 
 export const CATEGORIES = [
-  'skills', 'sops', 'architecture', 'security', 'economy', 'deployment',
-  'ui-standards', 'backend-standards', 'frontend-standards', 'game-economy',
+  'design-systems', 'engineering', 'architecture', 'security', 'economy', 'deployment',
+  'sops', 'skills', 'ui-standards', 'backend-standards', 'frontend-standards', 'game-economy',
   'trading', 'marketplace', 'anti-cheat', 'analytics', 'liveops', 'premium',
   'monetization', 'cloud-save', 'offline-sync',
 ] as const
 
 export const CAT_COLORS: Record<string, string> = {
-  'skills': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-  'sops': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  'design-systems': 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+  'engineering': 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
   'architecture': 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
   'security': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
   'economy': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
   'deployment': 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+  'sops': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  'skills': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
   'ui-standards': 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
   'backend-standards': 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
   'frontend-standards': 'bg-lime-100 text-lime-800 dark:bg-lime-900/40 dark:text-lime-300',
@@ -49,8 +51,9 @@ export const CAT_COLORS: Record<string, string> = {
 }
 
 export const CAT_BAR_COLORS: Record<string, string> = {
-  'skills': '#10b981', 'sops': '#f59e0b', 'architecture': '#14b8a6',
-  'security': '#ef4444', 'economy': '#06b6d4', 'deployment': '#f97316',
+  'design-systems': '#a855f7', 'engineering': '#3b82f6',
+  'architecture': '#14b8a6', 'security': '#ef4444', 'economy': '#06b6d4',
+  'deployment': '#f97316', 'sops': '#f59e0b', 'skills': '#10b981',
   'ui-standards': '#ec4899', 'backend-standards': '#14b8a6',
   'frontend-standards': '#84cc16', 'game-economy': '#eab308',
   'trading': '#d946ef', 'marketplace': '#f43f5e', 'anti-cheat': '#dc2626',

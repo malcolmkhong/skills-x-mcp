@@ -1,6 +1,6 @@
 {
   "$schema": "knowledge-categories-v1",
-  "description": "Hierarchical categorization of all knowledge units. Supports up to 5 levels of nesting. Auto-discovered skills not listed here appear under 'Uncategorized'.",
+  "description": "Hierarchical categorization of all knowledge units. Supports up to 5 levels of nesting. Auto-discovered skills not listed here appear under 'Uncategorized'. Directory structure mirrors this hierarchy.",
   "categories": [
     {
       "id": "design-systems",
@@ -111,27 +111,59 @@
       ]
     },
     {
-      "id": "architecture",
-      "label": "Architecture",
+      "id": "engineering",
+      "label": "Software Engineering",
       "icon": "Building2",
       "type": "domain",
       "children": [
         {
-          "id": "arch-patterns",
+          "id": "eng-architecture",
           "label": "Architecture Patterns",
           "icon": "GitBranch",
           "children": [
             {
-              "id": "arch-microservices",
+              "id": "eng-microservices",
               "label": "Microservices",
               "icon": "Boxes",
               "items": ["microservices"]
             },
             {
-              "id": "arch-event-driven",
+              "id": "eng-event-driven",
               "label": "Event-Driven",
               "icon": "Zap",
               "items": ["event-driven"]
+            }
+          ]
+        },
+        {
+          "id": "eng-deployment",
+          "label": "Deployment & Infrastructure",
+          "icon": "Rocket",
+          "children": [
+            {
+              "id": "eng-ci-cd",
+              "label": "CI/CD Pipelines",
+              "icon": "GitMerge",
+              "items": ["ci-cd-pipeline"]
+            }
+          ]
+        },
+        {
+          "id": "eng-sops",
+          "label": "Standard Operating Procedures",
+          "icon": "ClipboardList",
+          "children": [
+            {
+              "id": "eng-sops-deployment",
+              "label": "Deployment Procedures",
+              "icon": "Truck",
+              "items": ["deployment-sop"]
+            },
+            {
+              "id": "eng-sops-incidents",
+              "label": "Incident Response",
+              "icon": "Siren",
+              "items": ["incident-response"]
             }
           ]
         }
@@ -174,60 +206,18 @@
           "label": "Monetization",
           "icon": "CreditCard",
           "items": ["monetization"]
-        }
-      ]
-    },
-    {
-      "id": "skills",
-      "label": "Skills",
-      "icon": "Wrench",
-      "type": "domain",
-      "children": [
+        },
         {
-          "id": "skills-data",
+          "id": "eco-data",
           "label": "Data & Sync",
           "icon": "HardDrive",
           "items": ["cloud-save"]
         },
         {
-          "id": "skills-trading",
+          "id": "eco-trading",
           "label": "Trading & Marketplace",
           "icon": "ArrowLeftRight",
           "items": ["trading-system"]
-        }
-      ]
-    },
-    {
-      "id": "sops",
-      "label": "Standard Operating Procedures",
-      "icon": "ClipboardList",
-      "type": "domain",
-      "children": [
-        {
-          "id": "sops-deployment",
-          "label": "Deployment Procedures",
-          "icon": "Truck",
-          "items": ["deployment-sop"]
-        },
-        {
-          "id": "sops-incidents",
-          "label": "Incident Response",
-          "icon": "Siren",
-          "items": ["incident-response"]
-        }
-      ]
-    },
-    {
-      "id": "deployment",
-      "label": "Deployment & Infrastructure",
-      "icon": "Rocket",
-      "type": "domain",
-      "children": [
-        {
-          "id": "deploy-ci-cd",
-          "label": "CI/CD Pipelines",
-          "icon": "GitMerge",
-          "items": ["ci-cd-pipeline"]
         }
       ]
     }

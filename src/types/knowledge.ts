@@ -7,13 +7,14 @@ import { z } from 'zod';
 // ─── Knowledge Categories ──────────────────────────────────────────────────────
 
 export const KNOWLEDGE_CATEGORIES = [
-  'skills',
   'design-systems',
-  'sops',
+  'engineering',
   'architecture',
   'security',
   'economy',
   'deployment',
+  'sops',
+  'skills',
   'ui-standards',
   'backend-standards',
   'frontend-standards',

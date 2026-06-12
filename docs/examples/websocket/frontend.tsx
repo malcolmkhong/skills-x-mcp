@@ -25,9 +25,9 @@ export default function SocketDemo() {
   const [inputMessage, setInputMessage] = useState('');
   const [username, setUsername] = useState('');
   const [isUsernameSet, setIsUsernameSet] = useState(false);
-  const [socket, setSocket] = useState<any>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const socketRef = useState<any>(null);
 
   useEffect(() => {
     // Connect to websocket server
@@ -42,7 +42,7 @@ export default function SocketDemo() {
       timeout: 10000
     })
 
-    setSocket(socketInstance);
+    socketRef[1](socketInstance);
 
     socketInstance.on('connect', () => {
       setIsConnected(true);
@@ -81,15 +81,15 @@ export default function SocketDemo() {
   }, []);
 
   const handleJoin = () => {
-    if (socket && username.trim() && isConnected) {
-      socket.emit('join', { username: username.trim() });
+    if (socketRef[0] && username.trim() && isConnected) {
+      socketRef[0].emit('join', { username: username.trim() });
       setIsUsernameSet(true);
     }
   };
 
   const sendMessage = () => {
-    if (socket && inputMessage.trim() && username.trim()) {
-      socket.emit('message', {
+    if (socketRef[0] && inputMessage.trim() && username.trim()) {
+      socketRef[0].emit('message', {
         content: inputMessage.trim(),
         username: username.trim()
       });

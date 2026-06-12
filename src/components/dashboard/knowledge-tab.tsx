@@ -44,9 +44,6 @@ interface TreeStats {
   totalSkills: number
   totalCategorized: number
   totalUncategorized: number
-  dsSkills: number
-  dsCommands: number
-  rootKnowledge: number
   plugins: number
 }
 
@@ -64,6 +61,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Terminal, Building2, Shield, Coins, Wrench, ClipboardList, Rocket,
   Boxes, GitBranch, KeyRound, Eye, Banknote, CreditCard, HardDrive,
   ArrowLeftRight, Truck, Siren, GitMerge, FileQuestion,
+  // Engineering sub-category icons
+  BookOpen, Lightbulb, ListOrdered,
 }
 
 function getNodeIcon(node: TreeNode, isOpen: boolean): React.ElementType {

@@ -43,6 +43,8 @@ const SUGGESTED_QUERIES = [
 ]
 
 const CATEGORY_COLORS: Record<string, string> = {
+  'design-systems': 'bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300',
+  engineering: 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
   skills: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
   sops: 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300',
   architecture: 'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300',
