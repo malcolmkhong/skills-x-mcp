@@ -279,3 +279,34 @@ Stage Summary:
 - Category auto-derivation from directory structure working
 - Raw content preservation working
 - Search and retrieval working for design-systems content
+
+---
+Task ID: Knowledge-Tab-Redesign
+Agent: Main
+Task: Redesign the Knowledge page with scalable categorization, 5-level nested hierarchy, desktop-first UI with tree navigation, breadcrumbs, search, and enhanced skill detail views
+
+Work Log:
+- Analyzed all 25 knowledge skill files across 6 directories (design-systems/skills, design-systems/commands, architecture, security, economy, skills, sops, deployment)
+- Created `/knowledge/categories.json` taxonomy with 7 root categories, supporting up to 5 levels of nesting
+- Built `/api/knowledge/tree` API route with auto-discovery (scans filesystem, cross-references with categories.json), search, and individual skill retrieval
+- Completely redesigned `knowledge-tab.tsx` with desktop-first three-panel layout:
+  - Left: Collapsible tree navigation with expand/collapse, folder icons, skill/command differentiation
+  - Top: Breadcrumb trail showing navigation path
+  - Main: Category overview with sub-category cards and skill list, or full skill detail view
+- Built `SkillDetail` component that dynamically renders any skill's JSON structure with:
+  - Role/WhatYouDo callout boxes
+  - Recursive `DataSection` with collapsible sections
+  - `ValueRenderer` and `ObjectRenderer` for nested objects, arrays, and primitives
+  - Proper badge styling for arrays of tags
+- Built `CategoryIcon` and `NodeIcon` stable components to avoid render-time component creation (lint compliance)
+- Updated `home-client.tsx` to support full-height Knowledge tab with overflow control
+- API verified: 25 skills, 7 root categories, 5-level max nesting, 0 uncategorized, search working
+
+Stage Summary:
+- `knowledge/categories.json` - Hierarchical taxonomy (7 root → nested 5 levels deep)
+- `src/app/api/knowledge/tree/route.ts` - Auto-discovery API with search and skill retrieval
+- `src/components/dashboard/knowledge-tab.tsx` - Complete redesign with tree nav, breadcrumbs, detail views
+- All 25 skills properly categorized with 0 uncategorized
+- Auto-discovery: new skills added to filesystem appear automatically (uncategorized if not in categories.json)
+- Lint passes clean
+- Server instability in sandbox prevents full browser e2e test, but API endpoints fully verified

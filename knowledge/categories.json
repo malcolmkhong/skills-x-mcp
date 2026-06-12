@@ -1,0 +1,235 @@
+{
+  "$schema": "knowledge-categories-v1",
+  "description": "Hierarchical categorization of all knowledge units. Supports up to 5 levels of nesting. Auto-discovered skills not listed here appear under 'Uncategorized'.",
+  "categories": [
+    {
+      "id": "design-systems",
+      "label": "Design Systems",
+      "icon": "Palette",
+      "type": "plugin",
+      "children": [
+        {
+          "id": "ds-foundations",
+          "label": "Foundations",
+          "icon": "Layers",
+          "children": [
+            {
+              "id": "ds-tokens",
+              "label": "Tokens & Values",
+              "icon": "SwatchBook",
+              "children": [
+                {
+                  "id": "ds-token-architecture",
+                  "label": "Token Architecture",
+                  "items": ["design-token"]
+                },
+                {
+                  "id": "ds-naming-rules",
+                  "label": "Naming Rules",
+                  "items": ["naming-convention"]
+                }
+              ]
+            },
+            {
+              "id": "ds-visual-assets",
+              "label": "Visual Assets",
+              "icon": "Image",
+              "items": ["icon-system"]
+            }
+          ]
+        },
+        {
+          "id": "ds-components",
+          "label": "Components & Patterns",
+          "icon": "Component",
+          "children": [
+            {
+              "id": "ds-component-design",
+              "label": "Component Design",
+              "icon": "SquareCode",
+              "items": ["component-spec", "documentation-template"]
+            },
+            {
+              "id": "ds-pattern-design",
+              "label": "Pattern Design",
+              "icon": "Puzzle",
+              "items": ["pattern-library"]
+            }
+          ]
+        },
+        {
+          "id": "ds-systems",
+          "label": "Systems & Architecture",
+          "icon": "Settings2",
+          "children": [
+            {
+              "id": "ds-theming",
+              "label": "Theming",
+              "icon": "SunMoon",
+              "items": ["theming-system"]
+            },
+            {
+              "id": "ds-motion",
+              "label": "Motion & Animation",
+              "icon": "Zap",
+              "items": ["motion-system"]
+            },
+            {
+              "id": "ds-localization",
+              "label": "Localization & i18n",
+              "icon": "Globe",
+              "items": ["localization-design"]
+            }
+          ]
+        },
+        {
+          "id": "ds-quality",
+          "label": "Quality & Governance",
+          "icon": "ShieldCheck",
+          "children": [
+            {
+              "id": "ds-accessibility",
+              "label": "Accessibility",
+              "icon": "Accessibility",
+              "items": ["accessibility-audit"]
+            },
+            {
+              "id": "ds-governance",
+              "label": "Governance",
+              "icon": "Scale",
+              "items": ["design-system-governance"]
+            }
+          ]
+        },
+        {
+          "id": "ds-commands",
+          "label": "Commands",
+          "icon": "Terminal",
+          "type": "commands",
+          "items": ["audit-system", "create-component", "tokenize"]
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "label": "Architecture",
+      "icon": "Building2",
+      "type": "domain",
+      "children": [
+        {
+          "id": "arch-patterns",
+          "label": "Architecture Patterns",
+          "icon": "GitBranch",
+          "children": [
+            {
+              "id": "arch-microservices",
+              "label": "Microservices",
+              "icon": "Boxes",
+              "items": ["microservices"]
+            },
+            {
+              "id": "arch-event-driven",
+              "label": "Event-Driven",
+              "icon": "Zap",
+              "items": ["event-driven"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "label": "Security",
+      "icon": "Shield",
+      "type": "domain",
+      "children": [
+        {
+          "id": "sec-auth",
+          "label": "Authentication",
+          "icon": "KeyRound",
+          "items": ["auth-security"]
+        },
+        {
+          "id": "sec-anti-cheat",
+          "label": "Anti-Cheat",
+          "icon": "Eye",
+          "items": ["anti-cheat"]
+        }
+      ]
+    },
+    {
+      "id": "economy",
+      "label": "Economy & Monetization",
+      "icon": "Coins",
+      "type": "domain",
+      "children": [
+        {
+          "id": "eco-virtual",
+          "label": "Virtual Economy",
+          "icon": "Banknote",
+          "items": ["virtual-economy"]
+        },
+        {
+          "id": "eco-monetization",
+          "label": "Monetization",
+          "icon": "CreditCard",
+          "items": ["monetization"]
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "label": "Skills",
+      "icon": "Wrench",
+      "type": "domain",
+      "children": [
+        {
+          "id": "skills-data",
+          "label": "Data & Sync",
+          "icon": "HardDrive",
+          "items": ["cloud-save"]
+        },
+        {
+          "id": "skills-trading",
+          "label": "Trading & Marketplace",
+          "icon": "ArrowLeftRight",
+          "items": ["trading-system"]
+        }
+      ]
+    },
+    {
+      "id": "sops",
+      "label": "Standard Operating Procedures",
+      "icon": "ClipboardList",
+      "type": "domain",
+      "children": [
+        {
+          "id": "sops-deployment",
+          "label": "Deployment Procedures",
+          "icon": "Truck",
+          "items": ["deployment-sop"]
+        },
+        {
+          "id": "sops-incidents",
+          "label": "Incident Response",
+          "icon": "Siren",
+          "items": ["incident-response"]
+        }
+      ]
+    },
+    {
+      "id": "deployment",
+      "label": "Deployment & Infrastructure",
+      "icon": "Rocket",
+      "type": "domain",
+      "children": [
+        {
+          "id": "deploy-ci-cd",
+          "label": "CI/CD Pipelines",
+          "icon": "GitMerge",
+          "items": ["ci-cd-pipeline"]
+        }
+      ]
+    }
+  ]
+}

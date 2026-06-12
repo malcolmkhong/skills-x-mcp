@@ -215,8 +215,10 @@ export default function HomePage() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto">
-            {renderTab()}
+          <main className="flex-1 overflow-hidden flex flex-col">
+            <div className={`flex-1 ${activeTab === 'knowledge' ? '' : 'overflow-y-auto'}`}>
+              {renderTab()}
+            </div>
           </main>
 
           <footer className="h-8 border-t border-border bg-card flex items-center justify-center px-4 shrink-0">
