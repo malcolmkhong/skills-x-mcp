@@ -1,0 +1,855 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { toast } from 'sonner'
+     5→import {
+     6→  Search, ChevronRight, ChevronDown, Folder, FolderOpen, FileText,
+     7→  Zap, Terminal, Layers, Shield, Globe, Palette, Settings2, Component,
+     8→  Puzzle, SunMoon, Accessibility, Scale, Image, SwatchBook, SquareCode,
+     9→  Building2, ShieldCheck, Coins, Wrench, ClipboardList, Rocket,
+    10→  Boxes, GitBranch, KeyRound, Eye, Banknote, CreditCard, HardDrive,
+    11→  ArrowLeftRight, Truck, Siren, GitMerge, FileQuestion, Loader2,
+    12→  BookOpen, Lightbulb, ListOrdered, Link2, ArrowUpRight, Tag,
+    13→  ChevronUp, X, PanelLeftClose, PanelLeft, Hash,
+    14→} from 'lucide-react'
+    15→import { Input } from '@/components/ui/input'
+    16→import { Badge } from '@/components/ui/badge'
+    17→import { Button } from '@/components/ui/button'
+    18→import { Skeleton } from '@/components/ui/skeleton'
+    19→import { ScrollArea } from '@/components/ui/scroll-area'
+    20→import { Separator } from '@/components/ui/separator'
+    21→
+    22→// ─── Types ──────────────────────────────────────────────────────────────────
+    23→
+    24→interface TreeNode {
+    25→  id: string
+    26→  label: string
+    27→  icon?: string
+    28→  type?: 'plugin' | 'domain' | 'commands' | 'category' | 'skill' | 'command'
+    29→  children?: TreeNode[]
+    30→  skillData?: SkillData | null
+    31→  depth: number
+    32→  path: string[]
+    33→}
+    34→
+    35→interface SkillData {
+    36→  name: string
+    37→  description: string
+    38→  role?: string
+    39→  whatYouDo?: string
+    40→  [key: string]: unknown
+    41→}
+    42→
+    43→interface TreeStats {
+    44→  totalSkills: number
+    45→  totalCategorized: number
+    46→  totalUncategorized: number
+    47→  dsSkills: number
+    48→  dsCommands: number
+    49→  rootKnowledge: number
+    50→  plugins: number
+    51→}
+    52→
+    53→interface SearchResult {
+    54→  name: string
+    55→  data: SkillData
+    56→  matchField: string
+    57→}
+    58→
+    59→// ─── Icon map ───────────────────────────────────────────────────────────────
+    60→
+    61→const ICON_MAP: Record<string, React.ElementType> = {
+    62→  Palette, Layers, SwatchBook, Image, Component, SquareCode, Puzzle,
+    63→  Settings2, SunMoon, Zap, Globe, ShieldCheck, Accessibility, Scale,
+    64→  Terminal, Building2, Shield, Coins, Wrench, ClipboardList, Rocket,
+    65→  Boxes, GitBranch, KeyRound, Eye, Banknote, CreditCard, HardDrive,
+    66→  ArrowLeftRight, Truck, Siren, GitMerge, FileQuestion,
+    67→}
+    68→
+    69→function getNodeIcon(node: TreeNode, isOpen: boolean): React.ElementType {
+    70→  if (node.type === 'skill' || node.type === 'command') {
+    71→    return node.type === 'command' ? Terminal : FileText
+    72→  }
+    73→  if (node.icon && ICON_MAP[node.icon]) return ICON_MAP[node.icon]
+    74→  return isOpen ? FolderOpen : Folder
+    75→}
+    76→
+    77→// ─── Helpers ────────────────────────────────────────────────────────────────
+    78→
+    79→function countLeaves(node: TreeNode): number {
+    80→  if (!node.children || node.children.length === 0) return 1
+    81→  return node.children.reduce((sum, child) => sum + countLeaves(child), 0)
+    82→}
+    83→
+    84→function flattenSkills(node: TreeNode): TreeNode[] {
+    85→  if (node.type === 'skill' || node.type === 'command') return [node]
+    86→  if (!node.children) return []
+    87→  return node.children.flatMap(flattenSkills)
+    88→}
+    89→
+    90→function findNodeById(tree: TreeNode[], id: string): TreeNode | null {
+    91→  for (const node of tree) {
+    92→    if (node.id === id) return node
+    93→    if (node.children) {
+    94→      const found = findNodeById(node.children, id)
+    95→      if (found) return found
+    96→    }
+    97→  }
+    98→  return null
+    99→}
+   100→
+   101→function collectAllIds(tree: TreeNode[]): string[] {
+   102→  const ids: string[] = []
+   103→  for (const node of tree) {
+   104→    if (node.children && node.children.length > 0) {
+   105→      ids.push(node.id)
+   106→      ids.push(...collectAllIds(node.children))
+   107→    }
+   108→  }
+   109→  return ids
+   110→}
+   111→
+   112→// ─── Skill Detail Renderer ─────────────────────────────────────────────────
+   113→
+   114→function SkillDetail({ skill, type }: { skill: SkillData; type: string }) {
+   115→  if (!skill) return null
+   116→
+   117→  // For design-system skills with rich structure
+   118→  const isDesignSystemSkill = !!skill.role || !!skill.whatYouDo
+   119→  const isCommand = type === 'command'
+   120→  const entries = Object.entries(skill).filter(
+   121→    ([key]) => !key.startsWith('_') && key !== 'name' && key !== 'description'
+   122→  )
+   123→
+   124→  return (
+   125→    <div className="space-y-6">
+   126→      {/* Header */}
+   127→      <div>
+   128→        <div className="flex items-center gap-3 mb-2">
+   129→          <Badge
+   130→            variant="outline"
+   131→            className={
+   132→              isCommand
+   133→                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-xs'
+   134→                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-xs'
+   135→            }
+   136→          >
+   137→            {isCommand ? 'Command' : 'Skill'}
+   138→          </Badge>
+   139→        </div>
+   140→        <h1 className="text-xl font-bold leading-tight">
+   141→          {(skill.title || skill.name || '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+   142→        </h1>
+   143→        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{skill.description}</p>
+   144→      </div>
+   145→
+   146→      {/* Role / What You Do */}
+   147→      {(skill.role || skill.whatYouDo) && (
+   148→        <div className="space-y-3">
+   149→          {skill.role && (
+   150→            <div className="bg-muted/50 rounded-lg p-4">
+   151→              <div className="flex items-center gap-2 mb-1.5">
+   152→                <Lightbulb className="h-4 w-4 text-amber-500" />
+   153→                <span className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">Role</span>
+   154→              </div>
+   155→              <p className="text-sm leading-relaxed">{skill.role as string}</p>
+   156→            </div>
+   157→          )}
+   158→          {skill.whatYouDo && (
+   159→            <div className="bg-muted/50 rounded-lg p-4">
+   160→              <div className="flex items-center gap-2 mb-1.5">
+   161→                <Zap className="h-4 w-4 text-emerald-500" />
+   162→                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">What You Do</span>
+   163→              </div>
+   164→              <p className="text-sm leading-relaxed">{skill.whatYouDo as string}</p>
+   165→            </div>
+   166→          )}
+   167→        </div>
+   168→      )}
+   169→
+   170→      <Separator />
+   171→
+   172→      {/* Structured content sections */}
+   173→      <div className="space-y-4">
+   174→        {entries.map(([key, value]) => (
+   175→          <DataSection key={key} fieldKey={key} value={value} />
+   176→        ))}
+   177→      </div>
+   178→    </div>
+   179→  )
+   180→}
+   181→
+   182→// ─── Dynamic data section renderer ──────────────────────────────────────────
+   183→
+   184→function DataSection({ fieldKey, value }: { fieldKey: string; value: unknown }) {
+   185→  const [collapsed, setCollapsed] = useState(false)
+   186→  const label = fieldKey
+   187→    .replace(/([A-Z])/g, ' $1')
+   188→    .replace(/[-_]/g, ' ')
+   189→    .replace(/\b\w/g, c => c.toUpperCase())
+   190→    .trim()
+   191→
+   192→  // Count items
+   193→  const count = getItemCount(value)
+   194→  if (count === 0 && !value) return null
+   195→
+   196→  return (
+   197→    <div className="border border-border/60 rounded-lg overflow-hidden">
+   198→      <button
+   199→        onClick={() => setCollapsed(!collapsed)}
+   200→        className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left"
+   201→      >
+   202→        {collapsed ? (
+   203→          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+   204→        ) : (
+   205→          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+   206→        )}
+   207→        <span className="text-sm font-medium">{label}</span>
+   208→        {count > 0 && (
+   209→          <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-1">{count}</Badge>
+   210→        )}
+   211→      </button>
+   212→      {!collapsed && (
+   213→        <div className="px-4 pb-3 pt-1 border-t border-border/40">
+   214→          <ValueRenderer value={value} depth={0} />
+   215→        </div>
+   216→      )}
+   217→    </div>
+   218→  )
+   219→}
+   220→
+   221→function getItemCount(value: unknown): number {
+   222→  if (Array.isArray(value)) return value.length
+   223→  if (typeof value === 'object' && value !== null) return Object.keys(value).length
+   224→  if (typeof value === 'string') return 1
+   225→  return value ? 1 : 0
+   226→}
+   227→
+   228→function ValueRenderer({ value, depth }: { value: unknown; depth: number }) {
+   229→  if (value === null || value === undefined) return <span className="text-muted-foreground text-xs">—</span>
+   230→
+   231→  // String
+   232→  if (typeof value === 'string') {
+   233→    return <p className="text-sm text-foreground leading-relaxed">{value}</p>
+   234→  }
+   235→
+   236→  // Array
+   237→  if (Array.isArray(value)) {
+   238→    if (value.length === 0) return <span className="text-xs text-muted-foreground">Empty</span>
+   239→
+   240→    // Check if array of objects with known structure
+   241→    if (typeof value[0] === 'object' && value[0] !== null) {
+   242→      return (
+   243→        <div className="space-y-2">
+   244→          {value.map((item, i) => (
+   245→            <div key={i} className="bg-muted/30 rounded-md p-3 border border-border/30">
+   246→              <ObjectRenderer obj={item as Record<string, unknown>} depth={depth + 1} />
+   247→            </div>
+   248→          ))}
+   249→        </div>
+   250→      )
+   251→    }
+   252→
+   253→    // Array of primitives
+   254→    return (
+   255→      <div className="flex flex-wrap gap-1.5">
+   256→        {value.map((item, i) => (
+   257→          <Badge key={i} variant="secondary" className="text-xs font-normal">
+   258→            {String(item)}
+   259→          </Badge>
+   260→        ))}
+   261→      </div>
+   262→    )
+   263→  }
+   264→
+   265→  // Object
+   266→  if (typeof value === 'object') {
+   267→    return <ObjectRenderer obj={value as Record<string, unknown>} depth={depth} />
+   268→  }
+   269→
+   270→  // Primitive
+   271→  return <span className="text-sm font-mono">{String(value)}</span>
+   272→}
+   273→
+   274→function ObjectRenderer({ obj, depth }: { obj: Record<string, unknown>; depth: number }) {
+   275→  const entries = Object.entries(obj)
+   276→  if (entries.length === 0) return <span className="text-xs text-muted-foreground">Empty object</span>
+   277→
+   278→  return (
+   279→    <div className={depth > 0 ? 'space-y-1.5' : 'space-y-2'}>
+   280→      {entries.map(([key, val]) => {
+   281→        const displayKey = key
+   282→          .replace(/([A-Z])/g, ' $1')
+   283→          .replace(/[-_]/g, ' ')
+   284→          .replace(/\b\w/g, c => c.toUpperCase())
+   285→          .trim()
+   286→
+   287→        return (
+   288→          <div key={key} className="flex gap-3 items-start">
+   289→            <span className="text-xs font-medium text-muted-foreground min-w-[120px] shrink-0 pt-0.5 text-right">
+   290→              {displayKey}
+   291→            </span>
+   292→            <div className="flex-1 min-w-0">
+   293→              {typeof val === 'string' ? (
+   294→                <span className="text-sm">{val}</span>
+   295→              ) : Array.isArray(val) ? (
+   296→                <div className="flex flex-wrap gap-1">
+   297→                  {val.map((item, i) => (
+   298→                    <Badge key={i} variant="secondary" className="text-[11px] font-normal">
+   299→                      {typeof item === 'object' ? JSON.stringify(item) : String(item)}
+   300→                    </Badge>
+   301→                  ))}
+   302→                </div>
+   303→              ) : typeof val === 'object' && val !== null ? (
+   304→                <div className="bg-muted/20 rounded p-2 border border-border/20">
+   305→                  <ObjectRenderer obj={val as Record<string, unknown>} depth={depth + 1} />
+   306→                </div>
+   307→              ) : (
+   308→                <span className="text-sm font-mono">{String(val)}</span>
+   309→              )}
+   310→            </div>
+   311→          </div>
+   312→        )
+   313→      })}
+   314→    </div>
+   315→  )
+   316→}
+   317→
+   318→// ─── Node Icon (stable component to avoid render-time component creation) ────
+   319→
+   320→function NodeIcon({ iconName, isOpen, isLeaf, nodeType, className }: {
+   321→  iconName: string
+   322→  isOpen: boolean
+   323→  isLeaf: boolean
+   324→  nodeType?: string
+   325→  className: string
+   326→}) {
+   327→  if (isLeaf) {
+   328→    return nodeType === 'command'
+   329→      ? <Terminal className={className} />
+   330→      : <FileText className={className} />
+   331→  }
+   332→  const ResolvedIcon = (iconName && ICON_MAP[iconName]) || (isOpen ? FolderOpen : Folder)
+   333→  return <ResolvedIcon className={className} />
+   334→}
+   335→
+   336→function CategoryIcon({ iconName, className }: { iconName: string; className: string }) {
+   337→  const ResolvedIcon = (iconName && ICON_MAP[iconName]) || Folder
+   338→  return <ResolvedIcon className={className} />
+   339→}
+   340→
+   341→// ─── Tree Node Component ────────────────────────────────────────────────────
+   342→
+   343→function TreeNodeItem({
+   344→  node,
+   345→  selectedId,
+   346→  expandedIds,
+   347→  onToggle,
+   348→  onSelect,
+   349→}: {
+   350→  node: TreeNode
+   351→  selectedId: string | null
+   352→  expandedIds: Set<string>
+   353→  onToggle: (id: string) => void
+   354→  onSelect: (node: TreeNode) => void
+   355→}) {
+   356→  const hasChildren = node.children && node.children.length > 0
+   357→  const isOpen = expandedIds.has(node.id)
+   358→  const isSelected = selectedId === node.id
+   359→  const isLeaf = node.type === 'skill' || node.type === 'command'
+   360→  const leafCount = hasChildren ? countLeaves(node) : 0
+   361→  const iconName = node.icon || ''
+   362→  const iconClassName = `h-3.5 w-3.5 shrink-0 ${
+   363→    isLeaf
+   364→      ? node.type === 'command'
+   365→        ? 'text-amber-500'
+   366→        : 'text-emerald-500'
+   367→      : 'text-muted-foreground'
+   368→  }`
+   369→
+   370→  return (
+   371→    <div>
+   372→      <button
+   373→        className={`w-full flex items-center gap-1.5 px-2 py-1 rounded text-[13px] transition-colors group ${
+   374→          isSelected
+   375→            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium'
+   376→            : 'hover:bg-accent/60 text-foreground/90'
+   377→        }`}
+   378→        style={{ paddingLeft: `${node.depth * 16 + 8}px` }}
+   379→        onClick={() => {
+   380→          if (hasChildren) onToggle(node.id)
+   381→          onSelect(node)
+   382→        }}
+   383→      >
+   384→        {hasChildren ? (
+   385→          isOpen ? (
+   386→            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+   387→          ) : (
+   388→            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+   389→          )
+   390→        ) : (
+   391→          <span className="w-3 shrink-0" />
+   392→        )}
+   393→        <NodeIcon iconName={iconName} isOpen={isOpen} isLeaf={isLeaf} nodeType={node.type} className={iconClassName} />
+   394→        <span className="truncate flex-1 text-left">{node.label}</span>
+   395→        {hasChildren && !isLeaf && (
+   396→          <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+   397→            {leafCount}
+   398→          </span>
+   399→        )}
+   400→      </button>
+   401→      {hasChildren && isOpen && (
+   402→        <div>
+   403→          {node.children!.map(child => (
+   404→            <TreeNodeItem
+   405→              key={child.id}
+   406→              node={child}
+   407→              selectedId={selectedId}
+   408→              expandedIds={expandedIds}
+   409→              onToggle={onToggle}
+   410→              onSelect={onSelect}
+   411→            />
+   412→          ))}
+   413→        </div>
+   414→      )}
+   415→    </div>
+   416→  )
+   417→}
+   418→
+   419→// ─── Main Component ─────────────────────────────────────────────────────────
+   420→
+   421→export default function KnowledgeTab() {
+   422→  const [tree, setTree] = useState<TreeNode[]>([])
+   423→  const [stats, setStats] = useState<TreeStats | null>(null)
+   424→  const [loading, setLoading] = useState(true)
+   425→  const [selectedId, setSelectedId] = useState<string | null>(null)
+   426→  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+   427→  const [searchQuery, setSearchQuery] = useState('')
+   428→  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+   429→  const [isSearching, setIsSearching] = useState(false)
+   430→  const [treePanelCollapsed, setTreePanelCollapsed] = useState(false)
+   431→
+   432→  // Load tree data
+   433→  const loadTree = useCallback(async () => {
+   434→    setLoading(true)
+   435→    try {
+   436→      const res = await fetch('/api/knowledge/tree')
+   437→      const data = await res.json()
+   438→      if (data.tree) {
+   439→        setTree(data.tree)
+   440→        setStats(data.stats)
+   441→        // Auto-expand first level
+   442→        const firstLevelIds = data.tree.map((n: TreeNode) => n.id).filter((id: string) => data.tree.find((n: TreeNode) => n.id === id)?.children?.length)
+   443→        setExpandedIds(new Set(firstLevelIds))
+   444→      }
+   445→    } catch {
+   446→      toast.error('Failed to load knowledge tree')
+   447→    } finally {
+   448→      setLoading(false)
+   449→    }
+   450→  }, [])
+   451→
+   452→  useEffect(() => { loadTree() }, [loadTree])
+   453→
+   454→  // Search
+   455→  useEffect(() => {
+   456→    if (!searchQuery.trim()) {
+   457→      setSearchResults([])
+   458→      setIsSearching(false)
+   459→      return
+   460→    }
+   461→
+   462→    const timer = setTimeout(async () => {
+   463→      setIsSearching(true)
+   464→      try {
+   465→        const res = await fetch(`/api/knowledge/tree?q=${encodeURIComponent(searchQuery)}`)
+   466→        const data = await res.json()
+   467→        setSearchResults(data.results || [])
+   468→      } catch {
+   469→        setSearchResults([])
+   470→      } finally {
+   471→        setIsSearching(false)
+   472→      }
+   473→    }, 250)
+   474→
+   475→    return () => clearTimeout(timer)
+   476→  }, [searchQuery])
+   477→
+   478→  const handleToggle = useCallback((id: string) => {
+   479→    setExpandedIds(prev => {
+   480→      const next = new Set(prev)
+   481→      if (next.has(id)) next.delete(id)
+   482→      else next.add(id)
+   483→      return next
+   484→    })
+   485→  }, [])
+   486→
+   487→  const handleSelect = useCallback((node: TreeNode) => {
+   488→    setSelectedId(node.id)
+   489→  }, [])
+   490→
+   491→  const selectedNode = useMemo(() => {
+   492→    if (!selectedId) return null
+   493→    return findNodeById(tree, selectedId)
+   494→  }, [tree, selectedId])
+   495→
+   496→  // Skills within selected category
+   497→  const categorySkills = useMemo(() => {
+   498→    if (!selectedNode) return []
+   499→    if (selectedNode.type === 'skill' || selectedNode.type === 'command') return []
+   500→    return flattenSkills(selectedNode)
+   501→  }, [selectedNode])
+   502→
+   503→  // Expand all / collapse all
+   504→  const expandAll = useCallback(() => {
+   505→    setExpandedIds(new Set(collectAllIds(tree)))
+   506→  }, [tree])
+   507→
+   508→  const collapseAll = useCallback(() => {
+   509→    setExpandedIds(new Set())
+   510→  }, [])
+   511→
+   512→  // Loading state
+   513→  if (loading) {
+   514→    return (
+   515→      <div className="flex h-full">
+   516→        <div className="w-72 border-r border-border p-4 space-y-3">
+   517→          <Skeleton className="h-8 w-full" />
+   518→          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <Skeleton key={i} className="h-6 w-full" />)}
+   519→        </div>
+   520→        <div className="flex-1 p-6 space-y-4">
+   521→          <Skeleton className="h-8 w-64" />
+   522→          <Skeleton className="h-4 w-96" />
+   523→          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+   524→        </div>
+   525→      </div>
+   526→    )
+   527→  }
+   528→
+   529→  return (
+   530→    <div className="flex h-full min-h-0">
+   531→      {/* ─── Tree Panel ────────────────────────────────────────────── */}
+   532→      {!treePanelCollapsed && (
+   533→        <div className="w-72 border-r border-border bg-card/50 flex flex-col shrink-0">
+   534→          {/* Tree header */}
+   535→          <div className="p-3 border-b border-border space-y-2">
+   536→            <div className="flex items-center justify-between">
+   537→              <h2 className="text-sm font-semibold">Knowledge</h2>
+   538→              <div className="flex items-center gap-0.5">
+   539→                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={expandAll} title="Expand all">
+   540→                  <ChevronDown className="h-3 w-3" />
+   541→                </Button>
+   542→                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={collapseAll} title="Collapse all">
+   543→                  <ChevronUp className="h-3 w-3" />
+   544→                </Button>
+   545→                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setTreePanelCollapsed(true)} title="Hide panel">
+   546→                  <PanelLeftClose className="h-3 w-3" />
+   547→                </Button>
+   548→              </div>
+   549→            </div>
+   550→            <div className="relative">
+   551→              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+   552→              <Input
+   553→                placeholder="Search skills..."
+   554→                value={searchQuery}
+   555→                onChange={e => setSearchQuery(e.target.value)}
+   556→                className="h-8 pl-8 text-xs"
+   557→              />
+   558→              {searchQuery && (
+   559→                <button
+   560→                  className="absolute right-2 top-1/2 -translate-y-1/2"
+   561→                  onClick={() => setSearchQuery('')}
+   562→                >
+   563→                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+   564→                </button>
+   565→              )}
+   566→            </div>
+   567→          </div>
+   568→
+   569→          {/* Stats bar */}
+   570→          {stats && (
+   571→            <div className="px-3 py-2 border-b border-border flex items-center gap-3 text-[10px] text-muted-foreground">
+   572→              <span className="flex items-center gap-1"><Hash className="h-2.5 w-2.5" />{stats.totalSkills} skills</span>
+   573→              <span className="flex items-center gap-1"><Layers className="h-2.5 w-2.5" />{stats.plugins} plugin</span>
+   574→              {stats.totalUncategorized > 0 && (
+   575→                <span className="text-amber-600 dark:text-amber-400">{stats.totalUncategorized} uncategorized</span>
+   576→              )}
+   577→            </div>
+   578→          )}
+   579→
+   580→          {/* Search results or tree */}
+   581→          <ScrollArea className="flex-1">
+   582→            {searchQuery ? (
+   583→              <div className="p-2">
+   584→                {isSearching ? (
+   585→                  <div className="flex items-center justify-center py-8">
+   586→                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+   587→                  </div>
+   588→                ) : searchResults.length === 0 ? (
+   589→                  <div className="text-center py-8">
+   590→                    <Search className="h-6 w-6 mx-auto mb-2 text-muted-foreground/40" />
+   591→                    <p className="text-xs text-muted-foreground">No results for &ldquo;{searchQuery}&rdquo;</p>
+   592→                  </div>
+   593→                ) : (
+   594→                  <div className="space-y-0.5">
+   595→                    {searchResults.map(result => (
+   596→                      <button
+   597→                        key={result.name}
+   598→                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors ${
+   599→                          selectedId === result.name
+   600→                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+   601→                            : 'hover:bg-accent/60'
+   602→                        }`}
+   603→                        onClick={() => {
+   604→                          setSelectedId(result.name)
+   605→                          // Create a virtual node for the search result
+   606→                        }}
+   607→                      >
+   608→                        <FileText className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+   609→                        <div className="flex-1 text-left min-w-0">
+   610→                          <div className="truncate">
+   611→                            {result.data.title || result.data.name || result.name}
+   612→                          </div>
+   613→                          <div className="text-[10px] text-muted-foreground truncate">
+   614→                            Match: {result.matchField}
+   615→                          </div>
+   616→                        </div>
+   617→                      </button>
+   618→                    ))}
+   619→                  </div>
+   620→                )}
+   621→              </div>
+   622→            ) : (
+   623→              <div className="p-2">
+   624→                {tree.map(node => (
+   625→                  <TreeNodeItem
+   626→                    key={node.id}
+   627→                    node={node}
+   628→                    selectedId={selectedId}
+   629→                    expandedIds={expandedIds}
+   630→                    onToggle={handleToggle}
+   631→                    onSelect={handleSelect}
+   632→                  />
+   633→                ))}
+   634→              </div>
+   635→            )}
+   636→          </ScrollArea>
+   637→        </div>
+   638→      )}
+   639→
+   640→      {/* ─── Main Content Area ─────────────────────────────────────── */}
+   641→      <div className="flex-1 flex flex-col min-w-0">
+   642→        {/* Toolbar */}
+   643→        <div className="h-10 border-b border-border bg-card/50 flex items-center px-4 gap-2 shrink-0">
+   644→          {treePanelCollapsed && (
+   645→            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setTreePanelCollapsed(false)}>
+   646→              <PanelLeft className="h-3.5 w-3.5" />
+   647→            </Button>
+   648→          )}
+   649→          {/* Breadcrumbs */}
+   650→          {selectedNode ? (
+   651→            <div className="flex items-center gap-1 text-xs min-w-0">
+   652→              {selectedNode.path.map((segment, i) => (
+   653→                <React.Fragment key={i}>
+   654→                  {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+   655→                  <span className={i === selectedNode.path.length - 1 ? 'font-medium' : 'text-muted-foreground'}>
+   656→                    {segment}
+   657→                  </span>
+   658→                </React.Fragment>
+   659→              ))}
+   660→            </div>
+   661→          ) : (
+   662→            <span className="text-xs text-muted-foreground">Select a skill or category to view details</span>
+   663→          )}
+   664→        </div>
+   665→
+   666→        {/* Content */}
+   667→        <ScrollArea className="flex-1">
+   668→          <div className="p-6 max-w-5xl">
+   669→            {/* No selection state */}
+   670→            {!selectedNode && (
+   671→              <div className="flex flex-col items-center justify-center py-24 text-center">
+   672→                <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
+   673→                  <BookOpen className="h-8 w-8 text-emerald-500" />
+   674→                </div>
+   675→                <h2 className="text-lg font-semibold mb-2">Knowledge Base</h2>
+   676→                <p className="text-sm text-muted-foreground max-w-md">
+   677→                  Browse the tree on the left to explore skills, or use search to find specific knowledge. Skills are organized in a hierarchical category structure.
+   678→                </p>
+   679→                {stats && (
+   680→                  <div className="flex items-center gap-4 mt-6 text-xs text-muted-foreground">
+   681→                    <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />{stats.totalSkills} skills</span>
+   682→                    <span className="flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" />{stats.plugins} plugin</span>
+   683→                    <span className="flex items-center gap-1.5"><Folder className="h-3.5 w-3.5" />{stats.totalCategorized} categorized</span>
+   684→                  </div>
+   685→                )}
+   686→              </div>
+   687→            )}
+   688→
+   689→            {/* Skill detail */}
+   690→            {selectedNode && (selectedNode.type === 'skill' || selectedNode.type === 'command') && selectedNode.skillData && (
+   691→              <SkillDetail skill={selectedNode.skillData} type={selectedNode.type || 'skill'} />
+   692→            )}
+   693→
+   694→            {/* Skill node without data (search result) */}
+   695→            {selectedNode && (selectedNode.type === 'skill' || selectedNode.type === 'command') && !selectedNode.skillData && (
+   696→              <SearchResultDetail skillName={selectedNode.id} />
+   697→            )}
+   698→
+   699→            {/* Category overview */}
+   700→            {selectedNode && selectedNode.type !== 'skill' && selectedNode.type !== 'command' && (
+   701→              <CategoryOverview node={selectedNode} skills={categorySkills} onSelect={handleSelect} />
+   702→            )}
+   703→          </div>
+   704→        </ScrollArea>
+   705→      </div>
+   706→    </div>
+   707→  )
+   708→}
+   709→
+   710→// ─── Category Overview ──────────────────────────────────────────────────────
+   711→
+   712→function CategoryOverview({ node, skills, onSelect }: { node: TreeNode; skills: TreeNode[]; onSelect: (n: TreeNode) => void }) {
+   713→  return (
+   714→    <div className="space-y-6">
+   715→      {/* Header */}
+   716→      <div>
+   717→        <div className="flex items-center gap-2 mb-1">
+   718→          {node.type === 'plugin' && <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300 text-xs">Plugin</Badge>}
+   719→          {node.type === 'commands' && <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-xs">Commands</Badge>}
+   720→          {node.type === 'domain' && <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300 text-xs">Domain</Badge>}
+   721→          {node.type === 'category' && <Badge className="bg-slate-100 text-slate-800 dark:bg-slate-900/40 dark:text-slate-300 text-xs">Category</Badge>}
+   722→        </div>
+   723→        <h1 className="text-xl font-bold">{node.label}</h1>
+   724→        <p className="text-sm text-muted-foreground mt-1">
+   725→          {skills.length} skill{skills.length !== 1 ? 's' : ''} in this category
+   726→        </p>
+   727→      </div>
+   728→
+   729→      {/* Sub-categories */}
+   730→      {node.children && node.children.filter(c => c.type !== 'skill' && c.type !== 'command').length > 0 && (
+   731→        <div>
+   732→          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Sub-Categories</h3>
+   733→          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+   734→            {node.children
+   735→              .filter(c => c.type !== 'skill' && c.type !== 'command')
+   736→              .map(child => {
+   737→                const childSkills = flattenSkills(child)
+   738→                const childIconName = child.icon || ''
+   739→                return (
+   740→                  <button
+   741→                    key={child.id}
+   742→                    className="flex items-center gap-3 p-3 rounded-lg border border-border/60 hover:border-border hover:bg-accent/30 transition-colors text-left"
+   743→                    onClick={() => onSelect(child)}
+   744→                  >
+   745→                    <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+   746→                      <CategoryIcon iconName={childIconName} className="h-4 w-4 text-muted-foreground" />
+   747→                    </div>
+   748→                    <div className="min-w-0 flex-1">
+   749→                      <div className="text-sm font-medium truncate">{child.label}</div>
+   750→                      <div className="text-[11px] text-muted-foreground">{childSkills.length} skill{childSkills.length !== 1 ? 's' : ''}</div>
+   751→                    </div>
+   752→                  </button>
+   753→                )
+   754→              })}
+   755→          </div>
+   756→        </div>
+   757→      )}
+   758→
+   759→      {/* Skills list */}
+   760→      {skills.length > 0 && (
+   761→        <div>
+   762→          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Skills</h3>
+   763→          <div className="space-y-2">
+   764→            {skills.map(skill => {
+   765→              const data = skill.skillData
+   766→              return (
+   767→                <button
+   768→                  key={skill.id}
+   769→                  className="w-full flex items-start gap-3 p-3 rounded-lg border border-border/60 hover:border-border hover:bg-accent/30 transition-colors text-left"
+   770→                  onClick={() => onSelect(skill)}
+   771→                >
+   772→                  <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+   773→                    skill.type === 'command'
+   774→                      ? 'bg-amber-100 dark:bg-amber-900/30'
+   775→                      : 'bg-emerald-100 dark:bg-emerald-900/30'
+   776→                  }`}>
+   777→                    {skill.type === 'command' ? (
+   778→                      <Terminal className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   779→                    ) : (
+   780→                      <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   781→                    )}
+   782→                  </div>
+   783→                  <div className="flex-1 min-w-0">
+   784→                    <div className="flex items-center gap-2">
+   785→                      <span className="text-sm font-medium">{skill.label}</span>
+   786→                      <Badge variant="outline" className={`text-[10px] h-4 px-1 ${
+   787→                        skill.type === 'command'
+   788→                          ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+   789→                          : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+   790→                      }`}>
+   791→                        {skill.type === 'command' ? 'cmd' : 'skill'}
+   792→                      </Badge>
+   793→                    </div>
+   794→                    {data?.description && (
+   795→                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{data.description as string}</p>
+   796→                    )}
+   797→                  </div>
+   798→                  <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
+   799→                </button>
+   800→              )
+   801→            })}
+   802→          </div>
+   803→        </div>
+   804→      )}
+   805→    </div>
+   806→  )
+   807→}
+   808→
+   809→// ─── Search Result Detail (lazy-loaded) ─────────────────────────────────────
+   810→
+   811→function SearchResultDetail({ skillName }: { skillName: string }) {
+   812→  const [skill, setSkill] = useState<SkillData | null>(null)
+   813→  const [loading, setLoading] = useState(true)
+   814→
+   815→  useEffect(() => {
+   816→    let cancelled = false
+   817→    const fetchSkill = async () => {
+   818→      setLoading(true)
+   819→      try {
+   820→        const res = await fetch(`/api/knowledge/tree?skill=${encodeURIComponent(skillName)}`)
+   821→        const data = await res.json()
+   822→        if (!cancelled && data.skill) {
+   823→          setSkill(data.skill)
+   824→        }
+   825→      } catch {
+   826→        // ignore
+   827→      } finally {
+   828→        if (!cancelled) setLoading(false)
+   829→      }
+   830→    }
+   831→    fetchSkill()
+   832→    return () => { cancelled = true }
+   833→  }, [skillName])
+   834→
+   835→  if (loading) {
+   836→    return (
+   837→      <div className="space-y-4">
+   838→        <Skeleton className="h-8 w-64" />
+   839→        <Skeleton className="h-4 w-96" />
+   840→        <Skeleton className="h-32 w-full" />
+   841→      </div>
+   842→    )
+   843→  }
+   844→
+   845→  if (!skill) {
+   846→    return (
+   847→      <div className="text-center py-12">
+   848→        <p className="text-sm text-muted-foreground">Skill &ldquo;{skillName}&rdquo; not found</p>
+   849→      </div>
+   850→    )
+   851→  }
+   852→
+   853→  return <SkillDetail skill={skill} type={skill._domain ? 'skill' : 'skill'} />
+   854→}
+   855→

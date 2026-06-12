@@ -310,3 +310,38 @@ Stage Summary:
 - Auto-discovery: new skills added to filesystem appear automatically (uncategorized if not in categories.json)
 - Lint passes clean
 - Server instability in sandbox prevents full browser e2e test, but API endpoints fully verified
+
+---
+Task ID: 6
+Agent: Main
+Task: Full System Verification — Test all available tools with new SDK/API updates
+
+Work Log:
+- Examined project structure: 25 knowledge files (11 DS skills + 3 commands + 11 domain files), categories.json, 7 API routes
+- Ran existing test script (test-design-systems-skills.ts): 235/235 checks pass (100%)
+- Read z-ai-web-dev-sdk README to understand correct API structure:
+  - Init: `const zai = await ZAI.create()`
+  - LLM: `zai.chat.completions.create({ messages })`
+  - VLM: `zai.chat.completions.createVision({ messages })`
+  - TTS: `zai.audio.tts.create({ input, voice, speed })`
+  - ASR: `zai.audio.asr.create({ file_base64 })`
+  - Image Gen: `zai.images.generations.create({ prompt, size })`
+  - Web Search: `zai.functions.invoke('web_search', { query, num })`
+  - Page Reader: `zai.functions.invoke('page_reader', { url })`
+- Wrote comprehensive test script (test-tools-full.ts) with correct SDK calls
+- Tested all AI Skills, Search Skills, Knowledge Data, API Endpoints, MCP Server
+
+Stage Summary:
+- Knowledge Data: 100% (all 25 files valid, all categorized, complex nested formats handled)
+- Auto-Discovery: 100% (categories.json works, 0 orphans, 4-level nesting depth)
+- Skill Adapter: 100% (format detection for skills and commands works)
+- LLM: ✅ Working (returned "LLM_TEST_OK")
+- TTS: ✅ Working (149KB WAV file generated)
+- ASR: ✅ API reachable (expected error for invalid audio format)
+- Image Generation: ✅ Working (156KB base64 image generated)
+- Web Search: ✅ Working (returned results for "design systems best practices")
+- Web Reader: ✅ Working (read example.com, returned "Example Domain")
+- MCP Server: ✅ Working (health check passes on port 3002)
+- API Endpoints: ✅ Working (health, tree, stats, search, single skill, list all verified)
+- VLM: ⚠️ API reachable but test image format issue (400 error for Wikipedia PNG, timeout for other images)
+- Dev server: ⚠️ Unstable in sandbox (crashes after serving requests)
