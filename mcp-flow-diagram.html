@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --text: #111827;
+    --text-sub: #6B7280;
+    --text-muted: #9CA3AF;
+    --bg: #FFFFFF;
+    --surface: #F9FAFB;
+    --border: #E5E7EB;
+    --connector: #94A3B8;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    width: fit-content;
+    min-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 56px;
+  }
+
+  .main-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .main-subtitle {
+    font-size: 14px;
+    color: var(--text-sub);
+    text-align: center;
+    margin-bottom: 40px;
+    line-height: 1.5;
+  }
+
+  .layer {
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin-bottom: 0;
+    position: relative;
+  }
+  .layer-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .layer-label .badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .layer-agents { background: #F0F4F8; border: 1.5px solid #CBD5E1; }
+  .layer-agents .layer-label { color: #334155; }
+  .layer-agents .badge { background: #CBD5E1; color: #334155; }
+
+  .layer-protocol { background: #EFF6FF; border: 1.5px solid #BFDBFE; }
+  .layer-protocol .layer-label { color: #1E40AF; }
+  .layer-protocol .badge { background: #BFDBFE; color: #1E40AF; }
+
+  .layer-server { background: #F0FDF4; border: 1.5px solid #BBF7D0; }
+  .layer-server .layer-label { color: #166534; }
+  .layer-server .badge { background: #BBF7D0; color: #166534; }
+
+  .layer-api { background: #FFF7ED; border: 1.5px solid #FED7AA; }
+  .layer-api .layer-label { color: #92400E; }
+  .layer-api .badge { background: #FED7AA; color: #92400E; }
+
+  .layer-engine { background: #F5F3FF; border: 1.5px solid #DDD6FE; }
+  .layer-engine .layer-label { color: #5B21B6; }
+  .layer-engine .badge { background: #DDD6FE; color: #5B21B6; }
+
+  .layer-data { background: #F8FAFC; border: 1.5px solid #E2E8F0; }
+  .layer-data .layer-label { color: #475569; }
+  .layer-data .badge { background: #E2E8F0; color: #475569; }
+
+  .nodes-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .node-card {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    min-width: 140px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .node-card .node-icon { font-size: 20px; margin-bottom: 4px; }
+  .node-card .node-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .node-card .node-desc { font-size: 11px; color: var(--text-sub); margin-top: 3px; line-height: 1.3; }
+
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .tool-card {
+    background: white;
+    border: 1.5px solid #BBF7D0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: left;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  .tool-card .tool-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #166534;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .tool-card .tool-desc { font-size: 10px; color: var(--text-sub); margin-top: 2px; line-height: 1.3; }
+
+  .flow-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 0;
+  }
+  .flow-arrow .arrow-line { width: 2px; height: 16px; background: var(--connector); }
+  .flow-arrow .arrow-head {
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid var(--connector);
+  }
+  .flow-arrow .arrow-label {
+    font-size: 10px; color: var(--text-muted); font-weight: 500;
+    margin-top: 2px; text-align: center; max-width: 300px;
+  }
+
+  .flow-arrow-bidi {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 0;
+  }
+  .flow-arrow-bidi .bidi-line {
+    width: 2px; height: 20px; background: var(--connector); position: relative;
+  }
+  .flow-arrow-bidi .bidi-line::before {
+    content: ''; position: absolute; top: -6px; left: -5px;
+    width: 0; height: 0;
+    border-left: 6px solid transparent; border-right: 6px solid transparent;
+    border-bottom: 8px solid var(--connector);
+  }
+  .flow-arrow-bidi .bidi-line::after {
+    content: ''; position: absolute; bottom: -6px; left: -5px;
+    width: 0; height: 0;
+    border-left: 6px solid transparent; border-right: 6px solid transparent;
+    border-top: 8px solid var(--connector);
+  }
+  .flow-arrow-bidi .arrow-label {
+    font-size: 10px; color: var(--text-muted); font-weight: 500;
+    text-align: center; max-width: 360px;
+  }
+
+  .detail-box {
+    background: white; border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px;
+    font-size: 11px; color: var(--text-sub); line-height: 1.5;
+  }
+  .detail-box .detail-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .detail-box code {
+    background: #F1F5F9; padding: 1px 5px; border-radius: 3px;
+    font-size: 10px; font-family: 'SF Mono', 'Fira Code', monospace; color: #475569;
+  }
+
+  .inline-row {
+    display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;
+  }
+  .inline-row > * { flex: 1; min-width: 280px; }
+
+  .sequence-flow {
+    display: flex; align-items: center; gap: 6px;
+    justify-content: center; flex-wrap: wrap;
+  }
+  .seq-step {
+    background: white; border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 8px 14px;
+    font-size: 11px; font-weight: 500; text-align: center; min-width: 100px;
+  }
+  .seq-step .seq-title { font-weight: 700; color: var(--text); }
+  .seq-step .seq-desc { color: var(--text-sub); font-size: 10px; margin-top: 1px; }
+  .seq-arrow { color: var(--connector); font-size: 16px; flex-shrink: 0; }
+
+  .legend {
+    display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+    margin-top: 32px; padding: 14px 24px;
+    background: #F9FAFB; border-radius: 8px; border: 1px solid #E5E7EB;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #4B5563; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid; }
+
+  .annotation {
+    display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap;
+  }
+  .annotation-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); }
+
+  .api-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .api-item {
+    background: white; border: 1px solid #FED7AA;
+    border-radius: 6px; padding: 6px 10px; font-size: 10px;
+  }
+  .api-item .api-method {
+    font-weight: 700; font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 9px; padding: 1px 5px; border-radius: 3px;
+    display: inline-block; margin-right: 4px;
+  }
+  .api-item .api-method.get { background: #DBEAFE; color: #1E40AF; }
+  .api-item .api-method.post { background: #D1FAE5; color: #065F46; }
+  .api-item .api-method.put { background: #FEF3C7; color: #92400E; }
+  .api-item .api-method.del { background: #FEE2E2; color: #991B1B; }
+  .api-item .api-path { font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text-sub); }
+</style>
+</head>
+<body>
+<div id="root">
+
+  <div class="main-title">IndustryX Knowledge MCP Server — Full Architecture Flow</div>
+  <div class="main-subtitle">Skills Provider · Remote MCP Server · SSE Transport · Port 3002<br>AI agents connect to retrieve knowledge on-demand via semantic search</div>
+
+  <!-- LAYER 1: AI AGENTS -->
+  <div class="layer layer-agents">
+    <div class="layer-label">Layer 1 — AI Agents (Consumers)<span class="badge">Who calls us</span></div>
+    <div class="nodes-row">
+      <div class="node-card"><div class="node-icon">🤖</div><div class="node-title">Claude Code</div><div class="node-desc">claude_desktop_config.json</div></div>
+      <div class="node-card"><div class="node-icon">⚡</div><div class="node-title">Cursor</div><div class="node-desc">MCP Settings → SSE</div></div>
+      <div class="node-card"><div class="node-icon">🔧</div><div class="node-title">Codex / Windsurf</div><div class="node-desc">Any MCP-compatible client</div></div>
+      <div class="node-card"><div class="node-icon">🌐</div><div class="node-title">Custom Agents</div><div class="node-desc">SSE + JSON-RPC client</div></div>
+    </div>
+  </div>
+
+  <div class="flow-arrow-bidi">
+    <div class="arrow-label">SSE Connection: <code>/sse</code> (GET) → endpoint event → <code>/messages?sessionId=X</code> (POST)</div>
+    <div class="bidi-line"></div>
+    <div class="arrow-label">JSON-RPC 2.0 over SSE · Protocol Version 2024-11-05</div>
+  </div>
+
+  <!-- LAYER 2: MCP PROTOCOL -->
+  <div class="layer layer-protocol">
+    <div class="layer-label">Layer 2 — MCP Protocol (SSE Transport)<span class="badge">How they talk</span></div>
+    <div class="sequence-flow">
+      <div class="seq-step"><div class="seq-title">initialize</div><div class="seq-desc">capabilities + serverInfo</div></div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step"><div class="seq-title">initialized</div><div class="seq-desc">notification (ack)</div></div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step"><div class="seq-title">tools/list</div><div class="seq-desc">discover 8 tools</div></div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step"><div class="seq-title">tools/call</div><div class="seq-desc">execute + get result</div></div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step"><div class="seq-title">ping</div><div class="seq-desc">keep-alive</div></div>
+    </div>
+    <div class="annotation">
+      <div class="annotation-item">📋 Response: <code>{ content: [{ type: "text", text: "..." }] }</code></div>
+      <div class="annotation-item">🔄 Keepalive: <code>: keepalive\n\n</code> every 15s</div>
+      <div class="annotation-item">🔑 Auth: None (future: OAuth 2.1)</div>
+    </div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="arrow-line"></div>
+    <div class="arrow-head"></div>
+    <div class="arrow-label">MCP Server handles JSON-RPC → dispatches to tool execution</div>
+  </div>
+
+  <!-- LAYER 3: MCP SERVER -->
+  <div class="layer layer-server">
+    <div class="layer-label">Layer 3 — MCP Server (Skills Provider) · Port 3002<span class="badge">What we expose</span></div>
+    <div class="tools-grid">
+      <div class="tool-card"><div class="tool-name">search_knowledge</div><div class="tool-desc">Hybrid search across all categories</div></div>
+      <div class="tool-card"><div class="tool-name">retrieve_knowledge</div><div class="tool-desc">Get full doc by slug</div></div>
+      <div class="tool-card"><div class="tool-name">build_context</div><div class="tool-desc">Assemble context within token budget</div></div>
+      <div class="tool-card"><div class="tool-name">search_skills</div><div class="tool-desc">Filter: skills category</div></div>
+      <div class="tool-card"><div class="tool-name">search_sops</div><div class="tool-desc">Filter: SOPs category</div></div>
+      <div class="tool-card"><div class="tool-name">search_architecture</div><div class="tool-desc">Filter: architecture category</div></div>
+      <div class="tool-card"><div class="tool-name">search_security</div><div class="tool-desc">Filter: security category</div></div>
+      <div class="tool-card"><div class="tool-name">search_game_system</div><div class="tool-desc">Multi-cat: economy, trading, anti-cheat</div></div>
+    </div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="arrow-line"></div>
+    <div class="arrow-head"></div>
+    <div class="arrow-label">MCP Server → HTTP Client → REST API calls (30s timeout)</div>
+  </div>
+
+  <!-- LAYER 4: REST API -->
+  <div class="layer layer-api">
+    <div class="layer-label">Layer 4 — REST API (Next.js 16 App Router) · Port 3000<span class="badge">Backend services</span></div>
+    <div class="api-list">
+      <div class="api-item"><span class="api-method get">GET</span><span class="api-path">/api/knowledge</span></div>
+      <div class="api-item"><span class="api-method post">POST</span><span class="api-path">/api/knowledge</span></div>
+      <div class="api-item"><span class="api-method get">GET</span><span class="api-path">/api/knowledge/[id]</span></div>
+      <div class="api-item"><span class="api-method put">PUT</span><span class="api-path">/api/knowledge/[id]</span></div>
+      <div class="api-item"><span class="api-method del">DEL</span><span class="api-path">/api/knowledge/[id]</span></div>
+      <div class="api-item"><span class="api-method post">POST</span><span class="api-path">/api/knowledge/search</span></div>
+      <div class="api-item"><span class="api-method post">POST</span><span class="api-path">/api/knowledge/context</span></div>
+      <div class="api-item"><span class="api-method post">POST</span><span class="api-path">/api/knowledge/ingest</span></div>
+      <div class="api-item"><span class="api-method get">GET</span><span class="api-path">/api/knowledge/stats</span></div>
+      <div class="api-item"><span class="api-method post">POST</span><span class="api-path">/api/knowledge/rebuild</span></div>
+      <div class="api-item"><span class="api-method post">POST</span><span class="api-path">/api/knowledge/similar</span></div>
+      <div class="api-item"><span class="api-method get">GET</span><span class="api-path">/health (MCP)</span></div>
+    </div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="arrow-line"></div>
+    <div class="arrow-head"></div>
+    <div class="arrow-label">API routes call knowledge engine modules</div>
+  </div>
+
+  <!-- LAYER 5: KNOWLEDGE ENGINE -->
+  <div class="layer layer-engine">
+    <div class="layer-label">Layer 5 — Knowledge Engine (Core Logic)<span class="badge">How it works</span></div>
+    <div class="inline-row">
+      <div class="detail-box">
+        <div class="detail-title">🔍 Hybrid Search Pipeline</div>
+        <div style="margin-top: 6px;">
+          <div class="sequence-flow" style="justify-content: flex-start; flex-wrap: wrap;">
+            <div class="seq-step" style="min-width: 80px; padding: 6px 10px;"><div class="seq-title" style="font-size: 10px;">Embedding</div><div class="seq-desc">0.50 weight</div></div>
+            <div class="seq-arrow" style="font-size: 12px;">+</div>
+            <div class="seq-step" style="min-width: 80px; padding: 6px 10px;"><div class="seq-title" style="font-size: 10px;">Keyword</div><div class="seq-desc">0.25 weight</div></div>
+            <div class="seq-arrow" style="font-size: 12px;">+</div>
+            <div class="seq-step" style="min-width: 80px; padding: 6px 10px;"><div class="seq-title" style="font-size: 10px;">Category</div><div class="seq-desc">0.15 weight</div></div>
+            <div class="seq-arrow" style="font-size: 12px;">+</div>
+            <div class="seq-step" style="min-width: 80px; padding: 6px 10px;"><div class="seq-title" style="font-size: 10px;">Usage</div><div class="seq-desc">0.10 weight</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="detail-box">
+        <div class="detail-title">📦 Context Builder</div>
+        <div style="margin-top: 6px; font-size: 10px; line-height: 1.6;">
+          1. Semantic search → top N docs<br>
+          2. Fetch full content (excl. embedding)<br>
+          3. Apply token budget (default: 5000)<br>
+          4. Smart truncation: section → paragraph → sentence<br>
+          5. Assemble structured context block
+        </div>
+      </div>
+    </div>
+    <div class="inline-row" style="margin-top: 12px;">
+      <div class="detail-box">
+        <div class="detail-title">🧮 Embedding Generator</div>
+        <div style="margin-top: 6px; font-size: 10px; line-height: 1.6;">
+          Hash-based deterministic (512-dim)<br>
+          N-gram hashing for semantic signal<br>
+          Production path: OpenAI text-embedding-3-small + pgvector<br>
+          Cosine similarity for vector matching
+        </div>
+      </div>
+      <div class="detail-box">
+        <div class="detail-title">📥 Ingestion Pipeline</div>
+        <div style="margin-top: 6px; font-size: 10px; line-height: 1.6;">
+          Scan <code>knowledge/</code> markdown files<br>
+          Parse frontmatter: title, category, description, keywords<br>
+          Auto-detect category from path, slug from filename<br>
+          Generate embedding → upsert to DB<br>
+          Supports: full / category / single reindex
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="arrow-line"></div>
+    <div class="arrow-head"></div>
+    <div class="arrow-label">Prisma ORM → SQLite (production: PostgreSQL + pgvector)</div>
+  </div>
+
+  <!-- LAYER 6: DATA LAYER -->
+  <div class="layer layer-data">
+    <div class="layer-label">Layer 6 — Data Layer<span class="badge">Where knowledge lives</span></div>
+    <div class="inline-row">
+      <div class="detail-box">
+        <div class="detail-title">🗄️ SQLite + Prisma</div>
+        <div style="margin-top: 6px; font-size: 10px; line-height: 1.6;">
+          <strong>Knowledge</strong> — id, slug, title, category, description, keywords,<br>
+          &nbsp;&nbsp;markdownContent, embedding (JSON 512-dim), version,<br>
+          &nbsp;&nbsp;accessCount, relevanceScore, isActive, timestamps<br>
+          <strong>IngestionLog</strong> — tracks ingestion runs<br>
+          <strong>RetrievalStat</strong> — tracks search analytics
+        </div>
+      </div>
+      <div class="detail-box">
+        <div class="detail-title">📁 Knowledge Files (11 docs, 6 categories)</div>
+        <div style="margin-top: 6px; font-size: 10px; line-height: 1.6;">
+          <code>knowledge/</code><br>
+          ├─ <code>skills/</code> — cloud-save, offline-sync<br>
+          ├─ <code>sops/</code> — incident-response, release-process<br>
+          ├─ <code>architecture/</code> — microservices, event-driven<br>
+          ├─ <code>security/</code> — auth-security, data-protection<br>
+          ├─ <code>economy/</code> — virtual-economy, trading-system<br>
+          └─ <code>deployment/</code> — cicd-pipeline
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXAMPLE FLOW -->
+  <div style="margin-top: 32px; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 24px 28px;">
+    <div style="font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px;">Example: AI Agent Asks "How do I implement cloud save?"</div>
+    <div style="font-size: 12px; color: var(--text-sub); margin-bottom: 16px;">End-to-end request flow through all 6 layers</div>
+
+    <div class="sequence-flow" style="justify-content: flex-start; flex-wrap: wrap; gap: 8px;">
+      <div class="seq-step" style="border-color: #CBD5E1; min-width: 110px;">
+        <div class="seq-title" style="font-size: 10px; color: #334155;">① Agent</div>
+        <div class="seq-desc">SSE connect /sse</div>
+      </div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step" style="border-color: #BFDBFE; min-width: 110px;">
+        <div class="seq-title" style="font-size: 10px; color: #1E40AF;">② initialize</div>
+        <div class="seq-desc">protocolVersion</div>
+      </div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step" style="border-color: #BFDBFE; min-width: 110px;">
+        <div class="seq-title" style="font-size: 10px; color: #1E40AF;">③ tools/list</div>
+        <div class="seq-desc">discover 8 tools</div>
+      </div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step" style="border-color: #BBF7D0; min-width: 140px;">
+        <div class="seq-title" style="font-size: 10px; color: #166534;">④ tools/call</div>
+        <div class="seq-desc">search_skills("cloud save")</div>
+      </div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step" style="border-color: #FED7AA; min-width: 130px;">
+        <div class="seq-title" style="font-size: 10px; color: #92400E;">⑤ POST /search</div>
+        <div class="seq-desc">hybrid search API</div>
+      </div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step" style="border-color: #DDD6FE; min-width: 120px;">
+        <div class="seq-title" style="font-size: 10px; color: #5B21B6;">⑥ Engine</div>
+        <div class="seq-desc">embed→score→rank</div>
+      </div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step" style="border-color: #E2E8F0; min-width: 110px;">
+        <div class="seq-title" style="font-size: 10px; color: #475569;">⑦ SQLite</div>
+        <div class="seq-desc">query knowledge</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+      <div class="seq-step" style="border-color: #DDD6FE; min-width: 160px;">
+        <div class="seq-title" style="font-size: 10px; color: #5B21B6;">⑧ Agent calls again</div>
+        <div class="seq-desc">retrieve_knowledge("cloud-save")</div>
+      </div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step" style="border-color: #FED7AA; min-width: 160px;">
+        <div class="seq-title" style="font-size: 10px; color: #92400E;">⑨ GET /knowledge/:id</div>
+        <div class="seq-desc">full doc + rules + steps</div>
+      </div>
+      <div class="seq-arrow">→</div>
+      <div class="seq-step" style="border-color: #BBF7D0; min-width: 180px;">
+        <div class="seq-title" style="font-size: 10px; color: #166534;">⑩ Result returned</div>
+        <div class="seq-desc">structured JSON → Agent uses it</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="border-color: #CBD5E1; background: #F0F4F8;"></div>AI Agents</div>
+    <div class="legend-item"><div class="legend-dot" style="border-color: #BFDBFE; background: #EFF6FF;"></div>MCP Protocol</div>
+    <div class="legend-item"><div class="legend-dot" style="border-color: #BBF7D0; background: #F0FDF4;"></div>MCP Server</div>
+    <div class="legend-item"><div class="legend-dot" style="border-color: #FED7AA; background: #FFF7ED;"></div>REST API</div>
+    <div class="legend-item"><div class="legend-dot" style="border-color: #DDD6FE; background: #F5F3FF;"></div>Knowledge Engine</div>
+    <div class="legend-item"><div class="legend-dot" style="border-color: #E2E8F0; background: #F8FAFC;"></div>Data Layer</div>
+  </div>
+
+</div>
+</body>
+</html>
