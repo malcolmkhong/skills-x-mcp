@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import {
-  Github, Mail, ChevronDown,
+  Github, Mail, ChevronDown, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,22 +11,46 @@ import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 
 // ─── Login Dropdown Panel (Client Component) ─────────────────────────────────
-// Uses Radix Popover for proper click-outside, focus management, and keyboard support.
-// No manual backdrop or document listener needed — Radix handles it all.
+// Uses Radix Popover for proper click-outside, focus, and keyboard support.
+// Uses signIn() from next-auth/react for proper session handling.
+// After successful login, forces a full page reload so useSession()
+// picks up the authenticated state immediately.
 
 export function LoginDropdown() {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('demo@industryx.io')
   const [password, setPassword] = useState('demo123')
-  const [csrfToken, setCsrfToken] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  // Fetch CSRF token on mount
-  useEffect(() => {
-    fetch('/api/auth/csrf')
-      .then(r => r.json())
-      .then(data => setCsrfToken(data.csrfToken))
-      .catch(() => {})
-  }, [])
+  const handleDemoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      // signIn() from next-auth/react handles CSRF internally
+      const result = await signIn('demo', {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        setError('Invalid credentials. Try demo@industryx.io / demo123')
+        setLoading(false)
+        return
+      }
+
+      if (result?.ok) {
+        // Force full page reload so useSession() picks up the new session
+        window.location.href = '/'
+      }
+    } catch {
+      setError('Sign in failed. Please try again.')
+      setLoading(false)
+    }
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -85,9 +109,8 @@ export function LoginDropdown() {
             </div>
           </div>
 
-          {/* Demo Login Form — native form submission for proper cookie handling */}
-          <form action="/api/auth/callback/demo" method="POST" className="space-y-2.5">
-            <input type="hidden" name="csrfToken" value={csrfToken} />
+          {/* Demo Login Form */}
+          <form onSubmit={handleDemoSubmit} className="space-y-2.5">
             <div>
               <label htmlFor="login-email" className="sr-only">Email</label>
               <Input
@@ -99,6 +122,7 @@ export function LoginDropdown() {
                 placeholder="demo@industryx.io"
                 className="h-9 text-sm"
                 required
+                disabled={loading}
               />
             </div>
             <div>
@@ -112,14 +136,25 @@ export function LoginDropdown() {
                 placeholder="Password"
                 className="h-9 text-sm"
                 required
+                disabled={loading}
               />
             </div>
+
+            {error && (
+              <p className="text-xs text-red-500 text-center">{error}</p>
+            )}
+
             <Button
               type="submit"
               className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+              disabled={loading}
             >
-              <Mail className="h-3.5 w-3.5 mr-1.5" />
-              Demo Sign In
+              {loading ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Mail className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              {loading ? 'Signing in...' : 'Demo Sign In'}
             </Button>
           </form>
 
