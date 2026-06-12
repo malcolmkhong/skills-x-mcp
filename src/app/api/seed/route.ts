@@ -1,8 +1,30 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { seedDatabase } from "@/lib/seed";
+import { ingestKnowledgeBase, ingestCategory } from "@/lib/knowledge/ingestion";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const body = await request.json().catch(() => ({}));
+    
+    // Support ingestion-only mode via ?ingest=true or body.ingest
+    const { searchParams } = new URL(request.url);
+    const ingestMode = searchParams.get("ingest") || body.ingest;
+    const ingestCategoryFilter = searchParams.get("category") || body.category;
+    
+    if (ingestMode) {
+      let result;
+      if (ingestCategoryFilter) {
+        result = await ingestCategory(ingestCategoryFilter as any);
+      } else {
+        result = await ingestKnowledgeBase();
+      }
+      return NextResponse.json({
+        success: true,
+        message: "Knowledge ingestion complete",
+        data: result,
+      });
+    }
+    
     const results = await seedDatabase();
 
     return NextResponse.json(

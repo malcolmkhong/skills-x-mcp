@@ -183,6 +183,9 @@ model Knowledge {
   examples             String    @default("[]") // JSON array of {name, description} objects
   references           String    @default("[]") // JSON array of reference slugs
   
+  // Raw content preservation — stores original JSON for skill formats that don't fit the flat schema
+  rawContent           String?   // Full original JSON (for design-systems skills, etc.)
+  
   // Embedding (production: pgvector)
   embedding            String    @default("[]") // JSON array of floats (512-dim hash-based)
   

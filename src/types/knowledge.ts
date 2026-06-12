@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 export const KNOWLEDGE_CATEGORIES = [
   'skills',
+  'design-systems',
   'sops',
   'architecture',
   'security',

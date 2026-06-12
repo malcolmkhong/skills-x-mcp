@@ -260,3 +260,22 @@ Stage Summary:
   - commands/audit-system.json — 7-step audit workflow
   - commands/create-component.json — 8-step component scaffolding workflow
   - commands/tokenize.json — 7-step token extraction workflow
+---
+Task ID: 5
+Agent: Main
+Task: Verify auto-detection, format compatibility, and categorization of design-systems skills
+
+Work Log:
+- Added design-systems to KNOWLEDGE_CATEGORIES and categoryFromPath map
+- Added rawContent field to Knowledge model in Prisma schema
+- Created skill-adapter.ts for auto-detect and transform skill/command formats
+- Updated ingestion.ts to use skill-adapter for auto-format detection
+- Added ingestion endpoint via /api/seed?ingest=true
+- Full ingestion: 25 files, 14 created (11 skills + 3 commands), 0 errors
+- Search verified: design-systems skills appear as top results
+
+Stage Summary:
+- Auto-detection pipeline working for skill/command formats
+- Category auto-derivation from directory structure working
+- Raw content preservation working
+- Search and retrieval working for design-systems content

@@ -1,5 +1,6 @@
 // IndustryX Knowledge MCP Server - Ingestion Pipeline
 // AI-Native: Scans JSON knowledge unit files, validates schema, generates embeddings, stores content
+// Supports auto-detection of skill formats (design-systems, etc.) via skill-adapter
 // No markdown dependency - JSON is the primary source of truth
 
 import fs from 'fs';
@@ -7,26 +8,69 @@ import path from 'path';
 import { db } from '@/lib/db';
 import { generateEmbedding, buildEmbeddingText } from './embedding';
 import { validateKnowledgeUnit } from '@/types/knowledge';
+import { isSkillFormat, isCommandFormat, shouldSkipFile, transformSkillToKnowledgeUnit } from './skill-adapter';
 import type { IngestionResult, KnowledgeCategory, JsonKnowledgeFile } from '@/types/knowledge';
 
 /**
- * Parse a JSON knowledge unit file and validate against schema
+ * Parse a JSON knowledge unit file and validate against schema.
+ * If the file is in skill/command format, auto-transform it.
  */
-function parseJsonKnowledgeFile(filePath: string): { data: JsonKnowledgeFile; errors?: string[] } {
+function parseJsonKnowledgeFile(
+  filePath: string,
+  knowledgeBase: string
+): { data: JsonKnowledgeFile; rawContent?: string; errors?: string[]; format?: 'standard' | 'skill' | 'command' | 'skipped' } {
   const errors: string[] = [];
   
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
     const raw = JSON.parse(content);
     
-    // Validate against Zod schema
+    // Check if this file should be skipped (plugin.json, overview.json, etc.)
+    const filename = path.basename(filePath);
+    if (shouldSkipFile(filename)) {
+      return { data: {} as JsonKnowledgeFile, format: 'skipped' };
+    }
+    
+    // Check if this is a skill or command format — auto-detect & transform
+    if (isSkillFormat(raw) || isCommandFormat(raw)) {
+      const format = isCommandFormat(raw) ? 'command' as const : 'skill' as const;
+      const category = categoryFromPath(filePath, knowledgeBase);
+      const relativePath = path.relative(knowledgeBase, filePath);
+      
+      const transformed = transformSkillToKnowledgeUnit(raw, {
+        filename,
+        relativePath,
+        categoryFromPath: category,
+      });
+      
+      // Convert to JsonKnowledgeFile format
+      const knowledgeFile: JsonKnowledgeFile = {
+        id: transformed.slug,
+        title: transformed.title,
+        category: transformed.category,
+        description: transformed.description,
+        tags: transformed.tags,
+        intents: transformed.intents,
+        dependencies: transformed.dependencies,
+        anti_patterns: transformed.antiPatterns,
+        implementation_steps: transformed.implementationSteps,
+        rules: transformed.rules,
+        examples: transformed.examples,
+        references: transformed.references,
+        metadata: { version: '1.0.0', updated_at: new Date().toISOString().split('T')[0] },
+      };
+      
+      return { data: knowledgeFile, rawContent: transformed.rawContent, format };
+    }
+    
+    // Standard KnowledgeUnit format — validate against Zod schema
     const validation = validateKnowledgeUnit(raw);
     if (!validation.success) {
       const zodErrors = validation.errors?.errors.map(e => `${e.path.join('.')}: ${e.message}`) || [];
-      return { data: raw as JsonKnowledgeFile, errors: zodErrors };
+      return { data: raw as JsonKnowledgeFile, errors: zodErrors, format: 'standard' };
     }
     
-    return { data: validation.data as JsonKnowledgeFile };
+    return { data: validation.data as JsonKnowledgeFile, format: 'standard' };
   } catch (error) {
     return { 
       data: {} as JsonKnowledgeFile, 
@@ -51,10 +95,17 @@ function slugFromFilename(filename: string): string {
  */
 function categoryFromPath(filePath: string, knowledgeBase: string): KnowledgeCategory | undefined {
   const relativePath = path.relative(knowledgeBase, filePath);
-  const firstDir = relativePath.split(path.sep)[0];
+  const parts = relativePath.split(path.sep);
+  
+  // Check first-level directory
+  const firstDir = parts[0];
+  // For nested paths like design-systems/skills/design-token.json,
+  // the category is the top-level directory
+  const secondDir = parts.length > 2 ? parts[1] : undefined;
   
   const categoryMap: Record<string, KnowledgeCategory> = {
     'skills': 'skills',
+    'design-systems': 'design-systems',
     'sops': 'sops',
     'architecture': 'architecture',
     'security': 'security',
@@ -82,11 +133,15 @@ function categoryFromPath(filePath: string, knowledgeBase: string): KnowledgeCat
     'offline_sync': 'offline-sync',
   };
 
-  return categoryMap[firstDir];
+  // Try first directory first
+  if (categoryMap[firstDir]) return categoryMap[firstDir];
+  
+  return undefined;
 }
 
 /**
- * Scan a directory for JSON knowledge files recursively
+ * Scan a directory for JSON knowledge files recursively.
+ * Skips known non-knowledge files (plugin.json, overview.json, etc.)
  */
 function scanDirectory(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -98,7 +153,7 @@ function scanDirectory(dir: string): string[] {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...scanDirectory(fullPath));
-    } else if (entry.name.endsWith('.json')) {
+    } else if (entry.name.endsWith('.json') && !shouldSkipFile(entry.name)) {
       files.push(fullPath);
     }
   }
@@ -107,17 +162,23 @@ function scanDirectory(dir: string): string[] {
 }
 
 /**
- * Ingest a single JSON knowledge file
+ * Ingest a single JSON knowledge file.
+ * Auto-detects format and transforms skill/command JSON as needed.
  */
 async function ingestFile(
   filePath: string,
   knowledgeBase: string
-): Promise<{ created: boolean; updated: boolean; error?: string }> {
+): Promise<{ created: boolean; updated: boolean; error?: string; format?: string }> {
   try {
-    const { data, errors: parseErrors } = parseJsonKnowledgeFile(filePath);
+    const { data, rawContent, errors: parseErrors, format } = parseJsonKnowledgeFile(filePath, knowledgeBase);
+    
+    // Skipped files (plugin.json, overview.json)
+    if (format === 'skipped') {
+      return { created: false, updated: false, format: 'skipped' };
+    }
     
     if (parseErrors && parseErrors.length > 0) {
-      return { created: false, updated: false, error: `Schema validation failed: ${parseErrors.join('; ')}` };
+      return { created: false, updated: false, error: `Schema validation failed: ${parseErrors.join('; ')}`, format };
     }
 
     // Use id from JSON, or derive from filename
@@ -125,7 +186,7 @@ async function ingestFile(
     const category = (data.category as KnowledgeCategory) || categoryFromPath(filePath, knowledgeBase);
 
     if (!category) {
-      return { created: false, updated: false, error: `Cannot determine category for ${filePath}` };
+      return { created: false, updated: false, error: `Cannot determine category for ${filePath}`, format };
     }
 
     const title = data.title || slug.replace(/-/g, ' ');
@@ -198,16 +259,17 @@ async function ingestFile(
             rules: JSON.stringify(rules),
             examples: JSON.stringify(examples),
             references: JSON.stringify(references),
+            rawContent: rawContent || null,
             embedding: JSON.stringify(embedding),
             schemaVersion,
             version: { increment: 1 },
             isActive: true,
           },
         });
-        return { created: false, updated: true };
+        return { created: false, updated: true, format };
       }
 
-      return { created: false, updated: false }; // No changes
+      return { created: false, updated: false, format }; // No changes
     }
 
     // Create new
@@ -225,22 +287,24 @@ async function ingestFile(
         rules: JSON.stringify(rules),
         examples: JSON.stringify(examples),
         references: JSON.stringify(references),
+        rawContent: rawContent || null,
         embedding: JSON.stringify(embedding),
         schemaVersion,
         version: 1,
       },
     });
 
-    return { created: true, updated: false };
+    return { created: true, updated: false, format };
   } catch (error) {
     return { created: false, updated: false, error: String(error) };
   }
 }
 
 /**
- * Full ingestion pipeline - scan and index all JSON knowledge files
+ * Full ingestion pipeline - scan and index all JSON knowledge files.
+ * Auto-detects skill formats and transforms them for storage.
  */
-export async function ingestKnowledgeBase(knowledgeBasePath?: string): Promise<IngestionResult> {
+export async function ingestKnowledgeBase(knowledgeBasePath?: string): Promise<IngestionResult & { formatBreakdown?: Record<string, number> }> {
   const knowledgeBase = knowledgeBasePath || path.join(process.cwd(), 'knowledge');
   
   const log = await db.ingestionLog.create({
@@ -256,9 +320,16 @@ export async function ingestKnowledgeBase(knowledgeBasePath?: string): Promise<I
     let updated = 0;
     let skipped = 0;
     const errors: IngestionResult['errors'] = [];
+    const formatBreakdown: Record<string, number> = {};
 
     for (const file of files) {
       const result = await ingestFile(file, knowledgeBase);
+      
+      // Track format breakdown
+      if (result.format) {
+        formatBreakdown[result.format] = (formatBreakdown[result.format] || 0) + 1;
+      }
+      
       if (result.error) {
         errors.push({ file: path.relative(knowledgeBase, file), error: result.error });
       } else if (result.created) {
@@ -285,6 +356,7 @@ export async function ingestKnowledgeBase(knowledgeBasePath?: string): Promise<I
       updated,
       skipped,
       errors,
+      formatBreakdown,
     };
   } catch (error) {
     await db.ingestionLog.update({
