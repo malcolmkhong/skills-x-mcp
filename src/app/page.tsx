@@ -8,7 +8,7 @@ import {
   Plus, Pencil, Trash2, Eye, X, RefreshCw, FileText, BarChart3,
   Activity, Clock, CheckCircle2, Loader2, Zap, Brain, Shield,
   Server, Menu, ChevronDown, ChevronUp, Target, AlertTriangle,
-  ListOrdered, BookOpen, Lightbulb, Link2
+  ListOrdered, BookOpen, Lightbulb, Link2, GitBranch
 } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -82,6 +82,8 @@ const NAV = [
   { id: 'mcp' as const, label: 'MCP Tools', icon: Wrench },
 ]
 
+const ARCH_NAV = { id: 'architecture' as const, label: 'Architecture', icon: GitBranch }
+
 type NavTab = typeof NAV[number]['id']
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -153,6 +155,7 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<NavTab>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [archOpen, setArchOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
 
   const toggleTheme = useCallback(() => {
@@ -183,6 +186,13 @@ export default function DashboardPage() {
                 </button>
               )
             })}
+            <div className="pt-1 mt-1 border-t border-border">
+              <button onClick={() => setArchOpen(true)}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-colors text-muted-foreground hover:bg-accent ${!sidebarOpen ? 'justify-center' : ''}`}>
+                <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                {sidebarOpen && <span>{ARCH_NAV.label}</span>}
+              </button>
+            </div>
           </nav>
           <div className="p-1.5 border-t border-border space-y-1">
             <Button variant="ghost" size={sidebarOpen ? 'default' : 'icon'} className="w-full h-7 text-xs" onClick={toggleTheme} suppressHydrationWarning>
@@ -213,7 +223,65 @@ export default function DashboardPage() {
                   <Icon className="h-3.5 w-3.5" /><span>{item.label}</span>
                 </button>
               })}
+              <div className="pt-1 mt-1 border-t border-border">
+                <button onClick={() => { setArchOpen(true); setMobileOpen(false) }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent">
+                  <GitBranch className="h-3.5 w-3.5" /><span>{ARCH_NAV.label}</span>
+                </button>
+              </div>
             </nav>
+          </SheetContent>
+        </Sheet>
+
+        {/* Architecture Side Panel */}
+        <Sheet open={archOpen} onOpenChange={setArchOpen}>
+          <SheetContent side="right" className="w-full md:w-[640px] lg:w-[800px] p-0">
+            <SheetHeader className="p-4 border-b">
+              <SheetTitle className="text-sm flex items-center gap-2"><GitBranch className="h-4 w-4 text-emerald-600" />Architecture Flow</SheetTitle>
+              <p className="text-[10px] text-muted-foreground mt-1">IndustryX Knowledge MCP Server — Full 6-Layer Architecture</p>
+            </SheetHeader>
+            <ScrollArea className="h-[calc(100vh-80px)]">
+              <div className="p-4">
+                <img
+                  src="/architecture-flow.png"
+                  alt="IndustryX Knowledge MCP Server Architecture Flow Diagram"
+                  className="w-full rounded-lg border border-border shadow-sm"
+                />
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-3 gap-2 text-[10px]">
+                    <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-2.5 border">
+                      <div className="font-bold text-slate-700 dark:text-slate-300 mb-1">Layer 1</div>
+                      <div className="text-muted-foreground">AI Agents — Claude Code, Cursor, Codex connect via SSE</div>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-2.5 border">
+                      <div className="font-bold text-blue-700 dark:text-blue-300 mb-1">Layer 2</div>
+                      <div className="text-muted-foreground">MCP Protocol — JSON-RPC 2.0 over SSE transport</div>
+                    </div>
+                    <div className="bg-emerald-50 dark:bg-emerald-950 rounded-lg p-2.5 border">
+                      <div className="font-bold text-emerald-700 dark:text-emerald-300 mb-1">Layer 3</div>
+                      <div className="text-muted-foreground">MCP Server — 8 tools exposed on port 3002</div>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-950 rounded-lg p-2.5 border">
+                      <div className="font-bold text-amber-700 dark:text-amber-300 mb-1">Layer 4</div>
+                      <div className="text-muted-foreground">REST API — Next.js 16, 12 endpoints on port 3000</div>
+                    </div>
+                    <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-2.5 border">
+                      <div className="font-bold text-purple-700 dark:text-purple-300 mb-1">Layer 5</div>
+                      <div className="text-muted-foreground">Knowledge Engine — Hybrid search, context builder, embeddings</div>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2.5 border">
+                      <div className="font-bold text-gray-700 dark:text-gray-300 mb-1">Layer 6</div>
+                      <div className="text-muted-foreground">Data Layer — SQLite + Prisma, 11 docs, 6 categories</div>
+                    </div>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-3 border text-[10px] text-muted-foreground">
+                    <div className="font-semibold text-foreground mb-1">Example Flow</div>
+                    Agent connects SSE → initialize → tools/list → tools/call <code className="bg-muted px-1 rounded">search_skills("cloud save")</code> →
+                    POST /search → Hybrid Engine scores → SQLite query → returns ranked results → Agent calls <code className="bg-muted px-1 rounded">retrieve_knowledge("cloud-save")</code> → GET /knowledge/:id → full document with rules, steps, anti-patterns
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
           </SheetContent>
         </Sheet>
 
