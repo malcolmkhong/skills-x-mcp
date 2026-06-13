@@ -1,7 +1,8 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 
 interface AuthUser {
@@ -34,8 +35,10 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading')
+  const cancelledRef = useRef(false)
 
-  const supabase = createClient()
+  // Memoize Supabase client so createClient() isn't called per render
+  const supabase = useMemo(() => createClient(), [])
 
   const mapUser = useCallback((sbUser: User | null): AuthUser | null => {
     if (!sbUser) return null
@@ -51,42 +54,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    cancelledRef.current = false
+
     // Get initial session
-    supabase.auth.getUser().then(({ data: { user: sbUser } }) => {
+    supabase.auth.getUser().then(({ data: { user: sbUser }, error }) => {
+      if (cancelledRef.current) return
+      if (error) {
+        toast.error('Failed to load session', { description: error.message })
+      }
       setUser(mapUser(sbUser))
       setStatus(sbUser ? 'authenticated' : 'unauthenticated')
-    }).catch(() => {
+    }).catch((err) => {
+      if (cancelledRef.current) return
+      toast.error('Session error', { description: err instanceof Error ? err.message : 'Unknown error' })
       setStatus('unauthenticated')
     })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelledRef.current) return
       const sbUser = session?.user ?? null
       setUser(mapUser(sbUser))
       setStatus(sbUser ? 'authenticated' : 'unauthenticated')
     })
 
     return () => {
+      cancelledRef.current = true
       subscription.unsubscribe()
     }
   }, [supabase, mapUser])
 
   const signInWithOAuth = useCallback(async (provider: 'github' | 'google') => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    if (error) {
-      console.error('OAuth sign in error:', error.message)
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+      if (error) {
+        toast.error('Sign in failed', { description: error.message })
+      }
+    } catch (err) {
+      toast.error('Sign in failed', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
+      })
     }
   }, [supabase])
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut()
     if (error) {
-      console.error('Sign out error:', error.message)
+      toast.error('Sign out failed', { description: error.message })
+      // Don't clear user state on signOut failure — only clear if signOut succeeds
+      return
     }
     setUser(null)
     setStatus('unauthenticated')

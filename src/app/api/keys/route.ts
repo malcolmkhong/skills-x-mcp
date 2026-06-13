@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 import { createApiKey, listApiKeys } from "@/lib/api-keys";
+import { safeParseBody } from "@/lib/api-error";
 
 // ─── GET /api/keys ───────────────────────────────────────────────────────────
 // List all API keys for the authenticated user
@@ -88,7 +89,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const body = await request.json();
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
 
     // Validate required fields
     if (!body.name || typeof body.name !== "string" || body.name.trim().length === 0) {

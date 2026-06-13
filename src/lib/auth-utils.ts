@@ -46,52 +46,57 @@ export async function validateApiKeyFromHeaders(
   monthlyUsage: number;
   name: string;
 } | null> {
-  const apiKey = headers.get("x-api-key");
-  if (!apiKey) return null;
+  try {
+    const apiKey = headers.get("x-api-key");
+    if (!apiKey) return null;
 
-  const keyHash = hashApiKey(apiKey);
+    const keyHash = hashApiKey(apiKey);
 
-  const apiKeyRecord = await db.apiKey.findUnique({
-    where: { keyHash },
-    select: {
-      id: true,
-      userId: true,
-      workspaceId: true,
-      permissions: true,
-      rateLimit: true,
-      monthlyLimit: true,
-      monthlyUsage: true,
-      name: true,
-      isRevoked: true,
-      expiresAt: true,
-    },
-  });
-
-  if (!apiKeyRecord) return null;
-  if (apiKeyRecord.isRevoked) return null;
-  if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < new Date())
-    return null;
-
-  // Update lastUsedAt asynchronously (don't await)
-  db.apiKey
-    .update({
-      where: { id: apiKeyRecord.id },
-      data: { lastUsedAt: new Date() },
-    })
-    .catch(() => {
-      // Ignore errors from lastUsedAt update
+    const apiKeyRecord = await db.apiKey.findUnique({
+      where: { keyHash },
+      select: {
+        id: true,
+        userId: true,
+        workspaceId: true,
+        permissions: true,
+        rateLimit: true,
+        monthlyLimit: true,
+        monthlyUsage: true,
+        name: true,
+        isRevoked: true,
+        expiresAt: true,
+      },
     });
 
-  return {
-    id: apiKeyRecord.id,
-    userId: apiKeyRecord.userId,
-    workspaceId: apiKeyRecord.workspaceId,
-    permissions: apiKeyRecord.permissions,
-    rateLimit: apiKeyRecord.rateLimit,
-    monthlyLimit: apiKeyRecord.monthlyLimit,
-    monthlyUsage: apiKeyRecord.monthlyUsage,
-    name: apiKeyRecord.name,
-  };
+    if (!apiKeyRecord) return null;
+    if (apiKeyRecord.isRevoked) return null;
+    if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < new Date())
+      return null;
+
+    // Update lastUsedAt asynchronously (don't await)
+    db.apiKey
+      .update({
+        where: { id: apiKeyRecord.id },
+        data: { lastUsedAt: new Date() },
+      })
+      .catch(() => {
+        // Ignore errors from lastUsedAt update
+      });
+
+    return {
+      id: apiKeyRecord.id,
+      userId: apiKeyRecord.userId,
+      workspaceId: apiKeyRecord.workspaceId,
+      permissions: apiKeyRecord.permissions,
+      rateLimit: apiKeyRecord.rateLimit,
+      monthlyLimit: apiKeyRecord.monthlyLimit,
+      monthlyUsage: apiKeyRecord.monthlyUsage,
+      name: apiKeyRecord.name,
+    };
+  } catch (error) {
+    console.error('[validateApiKeyFromHeaders]', error)
+    throw new Error(`Failed to validateApiKeyFromHeaders: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
 // ─── Session Utilities ──────────────────────────────────────────────────────
@@ -111,37 +116,42 @@ interface ExtendedSession {
  * Get the server session using Supabase Auth
  */
 export async function getServerSession(): Promise<ExtendedSession | null> {
-  const supabase = await createClient();
-  const { data: { user: sbUser } } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const { data: { user: sbUser } } = await supabase.auth.getUser();
 
-  if (!sbUser) return null;
+    if (!sbUser) return null;
 
-  const meta = sbUser.user_metadata ?? {};
+    const meta = sbUser.user_metadata ?? {};
 
-  // Look up the user in our local DB for role/plan
-  let role = meta.role ?? "user";
-  let plan = meta.plan ?? "free";
+    // Look up the user in our local DB for role/plan
+    let role = meta.role ?? "user";
+    let plan = meta.plan ?? "free";
 
-  const dbUser = await db.user.findUnique({
-    where: { email: sbUser.email ?? "" },
-    select: { role: true, plan: true },
-  });
+    const dbUser = await db.user.findUnique({
+      where: { email: sbUser.email ?? "" },
+      select: { role: true, plan: true },
+    });
 
-  if (dbUser) {
-    role = dbUser.role;
-    plan = dbUser.plan;
+    if (dbUser) {
+      role = dbUser.role;
+      plan = dbUser.plan;
+    }
+
+    return {
+      user: {
+        id: sbUser.id,
+        name: meta.full_name ?? meta.name ?? sbUser.email?.split("@")[0] ?? null,
+        email: sbUser.email ?? null,
+        image: meta.avatar_url ?? meta.picture ?? null,
+        role,
+        plan,
+      },
+    };
+  } catch (error) {
+    console.error('[getServerSession]', error)
+    throw new Error(`Failed to getServerSession: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  return {
-    user: {
-      id: sbUser.id,
-      name: meta.full_name ?? meta.name ?? sbUser.email?.split("@")[0] ?? null,
-      email: sbUser.email ?? null,
-      image: meta.avatar_url ?? meta.picture ?? null,
-      role,
-      plan,
-    },
-  };
 }
 
 /**
@@ -174,33 +184,38 @@ export async function getAuthIdentity(
     }
   | null
 > {
-  // Try API key first (from middleware-set header)
-  const apiKey = await validateApiKeyFromHeaders(headers);
-  if (apiKey) {
-    return {
-      method: "apikey",
-      apiKey,
-      userId: apiKey.userId,
-    };
+  try {
+    // Try API key first (from middleware-set header)
+    const apiKey = await validateApiKeyFromHeaders(headers);
+    if (apiKey) {
+      return {
+        method: "apikey",
+        apiKey,
+        userId: apiKey.userId,
+      };
+    }
+
+    // Try Supabase session
+    const session = await getServerSession();
+    if (session) {
+      // Look up user ID from email or use Supabase UID
+      const user = session.user.email
+        ? await db.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true },
+          })
+        : null;
+
+      return {
+        method: "session",
+        session,
+        userId: session.user.id ?? user?.id,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[getAuthIdentity]', error)
+    throw new Error(`Failed to getAuthIdentity: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  // Try Supabase session
-  const session = await getServerSession();
-  if (session) {
-    // Look up user ID from email or use Supabase UID
-    const user = session.user.email
-      ? await db.user.findUnique({
-          where: { email: session.user.email },
-          select: { id: true },
-        })
-      : null;
-
-    return {
-      method: "session",
-      session,
-      userId: session.user.id ?? user?.id,
-    };
-  }
-
-  return null;
 }

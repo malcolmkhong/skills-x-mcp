@@ -8,6 +8,7 @@ import {
   updateMemberRole,
 } from '@/lib/workspaces';
 import { db } from '@/lib/db';
+import { safeParseBody } from '@/lib/api-error';
 
 /**
  * GET - List all members of a workspace
@@ -69,7 +70,9 @@ export async function POST(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const body = await request.json();
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
     const { email, role = 'member' } = body;
 
     if (!email || typeof email !== 'string') {
@@ -202,7 +205,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const body = await request.json();
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
     const { memberId, role } = body;
 
     if (!memberId || typeof memberId !== 'string') {

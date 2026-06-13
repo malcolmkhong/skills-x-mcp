@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { buildContext } from '@/lib/knowledge/contextBuilder';
 import { getAuthIdentity } from '@/lib/auth-utils';
 import { trackEvent } from '@/lib/analytics';
+import { validate, contextSchema } from '@/lib/api-validation';
+import { handleApiError, apiError, safeParseBody } from '@/lib/api-error';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -16,22 +18,26 @@ export async function POST(request: NextRequest) {
     userId = identity?.userId;
     workspaceId = identity?.method === 'apikey' ? identity.apiKey.workspaceId ?? undefined : undefined;
 
-    const body = await request.json();
-    const { query, maxDocuments = 5, maxTokenBudget = 5000, category, sections, workspaceId: bodyWorkspaceId } = body;
-    
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
+    const validation = validate(contextSchema, body);
+
+    if (validation.error) {
+      return apiError(validation.error, 400);
+    }
+
+    const { query, maxDocuments, maxTokenBudget, category, sections, workspaceId: bodyWorkspaceId } = validation.data;
+
     // Use workspaceId from body if provided, otherwise from API key context
     const effectiveWorkspaceId = bodyWorkspaceId || workspaceId;
-
-    if (!query) {
-      return NextResponse.json({ error: 'query is required' }, { status: 400 });
-    }
     
     const result = await buildContext({
       query,
       maxDocuments,
       maxTokenBudget,
       category,
-      sections,
+      sections: sections as Array<'rules' | 'steps' | 'anti_patterns' | 'dependencies' | 'examples'> | undefined,
     });
 
     // Track context build event in analytics
@@ -57,10 +63,10 @@ export async function POST(request: NextRequest) {
         eventType: 'context_build',
         durationMs: Date.now() - startTime,
         success: false,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
         workspaceId,
       });
     }
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return handleApiError(error, 'knowledge/context');
   }
 }

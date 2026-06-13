@@ -421,3 +421,242 @@ Stage Summary:
 - Each tool has its own file — easy to find, modify, test independently
 - Old monolithic files removed (tools.ts, 613-line index.ts)
 - MCP server fully working after restructure
+
+---
+Task ID: 2
+Agent: Error-Handling-Fix
+Task: Fix apiFetch utility and frontend error handling across 7 files
+
+Work Log:
+- Fixed `apiFetch` in `src/components/dashboard/types.ts`:
+  - Check `res.ok` BEFORE calling `res.json()` (was reading body first, then checking status)
+  - Wrap `res.json()` in try/catch to handle non-JSON responses
+  - Added AbortController with 30-second timeout
+  - Return better error messages (extracts `data.error` or `data.message` from JSON error responses)
+  - Handle AbortError with user-friendly "Request timed out" message
+- Fixed `src/components/dashboard/login-screen.tsx`:
+  - Wrapped `signInWithOAuth` in try/catch
+  - Reset loading state in finally block (was never resetting on error)
+  - Show toast error on failure
+  - Added `toast` import from sonner
+- Fixed `src/components/dashboard/login-dropdown.tsx`:
+  - Same fix as login-screen: try/catch + finally + toast error
+  - Added `toast` import from sonner
+- Fixed `src/app/home-client.tsx`:
+  - `handleSignOut`: Wrapped in try/catch, show toast on failure instead of silent error
+  - Seed logic: Added `seededRef.current = true` in `finally` block to prevent infinite retries on error
+  - Seed logic: Check `/api/seed` response before showing success toast; show error toast on failure
+  - Null safety on `userName`: Added fallback `(userName || 'U')[0].toUpperCase()`
+- Fixed clipboard operations:
+  - `src/components/dashboard/api-keys-tab.tsx`: Made `copyToClipboard` async, await `navigator.clipboard.writeText`, added .catch() to show error toast instead of success
+  - `src/components/dashboard/mcp-tab.tsx`: Same async clipboard fix
+- Fixed `src/components/dashboard/api-keys-tab.tsx` `handleViewUsage`:
+  - Added `usageError` state
+  - On fetch failure, set `usageError` with error message instead of leaving "Loading..."
+  - Usage dialog now shows error message in red when fetch fails, or "Loading..." only while in progress
+  - Clear `usageError` on dialog open/close
+- Fixed `src/components/dashboard/workspaces-tab.tsx`:
+  - Added `deleting`, `removingMemberId`, `changingRoleMemberId` state variables
+  - `handleDelete`: Added `setDeleting` loading state with finally block
+  - `handleRemoveMember`: Added `setRemovingMemberId` loading state with finally block
+  - `handleChangeRole`: Added `setChangingRoleMemberId` loading state with finally block
+  - Delete dialog button: Shows Loader2 spinner and disabled during operation
+  - Member dropdown trigger: Shows Loader2 spinner when operation in progress, disabled during operations
+  - Dropdown items: Disabled during concurrent operations
+  - `loadMembers`: Show toast error on failure (was silently swallowing errors)
+- Lint: clean (zero errors)
+- Dev server: no errors, all compilations successful
+
+Stage Summary:
+- All 7 files fixed with robust error handling
+- apiFetch: proper response checking, JSON safety, timeout, better messages
+- Login components: try/catch with loading state reset and error toasts
+- home-client: signOut error handling, seed retry prevention, null safety
+- Clipboard: async with error handling instead of fire-and-forget
+- API Keys: usage dialog shows error messages instead of stuck "Loading..."
+- Workspaces: loading states for delete/remove/role-change, disabled buttons, member load error toast
+
+---
+Task ID: 1
+Agent: Error-Handling-Fixer
+Task: Create error boundary files and fix auth-context
+
+Work Log:
+- Read worklog.md to understand project context (IndustryX Knowledge MCP Platform with emerald color scheme)
+- Read existing auth-context.tsx and providers.tsx to understand current issues
+- Created `/src/app/error.tsx`:
+  - 'use client' directive for Next.js error boundary
+  - Brain icon from lucide-react in emerald accent circle
+  - Shows error message and digest ID when available
+  - "Try Again" button calls reset()
+  - "Go Home" link with Home icon back to /
+  - Uses shadcn/ui Card, CardHeader, CardTitle, CardContent, CardFooter, Button
+  - Full dark mode support via bg-background, text-muted-foreground, border-border
+- Created `/src/app/not-found.tsx`:
+  - FileQuestion icon from lucide-react in emerald accent circle
+  - "Page Not Found" title with explanatory text
+  - Large "404" text in emerald-500/20 as visual element
+  - "Go Home" button with emerald-600 background
+  - Uses shadcn/ui Card, Button components
+  - No 'use client' needed (no hooks)
+  - Matches emerald color scheme
+- Created `/src/app/global-error.tsx`:
+  - 'use client' directive
+  - Minimal HTML structure (html + body only, no layout dependencies)
+  - All inline styles (can't rely on Tailwind if layout is broken)
+  - Dark theme by default (backgroundColor: #0a0a0a)
+  - Emerald accent for the warning icon container
+  - "Try Again" button calls reset(), "Go Home" link to /
+  - Shows error message and digest when available
+  - Monospace error message display with word-break
+- Fixed `/src/lib/supabase/auth-context.tsx`:
+  - Memoized Supabase client with `useMemo(() => createClient(), [])` — no longer created per render
+  - Added `toast` import from 'sonner' for user-facing error feedback
+  - Added `cancelledRef` (useRef) to prevent state updates on unmounted components
+  - getUser() promise checks cancelledRef before calling setUser/setStatus
+  - onAuthStateChange callback checks cancelledRef before state updates
+  - Cleanup sets cancelledRef.current = true
+  - signOut: only clears user state if signOut succeeds; on failure shows toast error and returns early
+  - signInWithOAuth: wrapped in try/catch, shows toast on both OAuth errors and unexpected exceptions
+  - getUser error now shows toast.error with description
+- Fixed `/src/components/providers/providers.tsx`:
+  - Moved QueryClient creation from module scope to inside component using `useState(() => new QueryClient({...}))`
+  - Prevents SSR sharing issues where multiple requests could share the same QueryClient
+  - Added `useState` import from React
+- Lint: clean (zero errors)
+- Dev server: no errors, page compiles and serves correctly
+
+Stage Summary:
+- 3 new error boundary files created (error.tsx, not-found.tsx, global-error.tsx)
+- auth-context.tsx fixed with 5 improvements (memoize, toast, cancelled flag, signOut guard, try/catch)
+- providers.tsx fixed with SSR-safe QueryClient creation pattern
+- All error pages use emerald color scheme matching the app's design system
+- Global error boundary uses inline styles for layout-independence
+- Lint passes clean, dev server healthy
+
+---
+Task ID: 3
+Agent: Backend-Security-Fixer
+Task: Fix backend security and validation issues across all API routes
+
+Work Log:
+- Created `/src/lib/api-error.ts` — Standardized error response utility:
+  - `apiError(message, status, code?)` — structured JSON error responses
+  - `handleApiError(error, context?)` — logs full error server-side, returns sanitized message to client
+  - In development, exposes error messages for debugging; in production, returns generic "An unexpected error occurred"
+  - Handles known patterns: "not found" → 404, "Authentication required" → 401
+- Created `/src/lib/api-validation.ts` — Zod schemas and validation utility:
+  - `validate<T>(schema, data)` helper — returns typed data or formatted error string
+  - `searchKnowledgeSchema` — query (required), limit (1-50, default 5), minScore (0-1, default 0.1), category, workspaceId
+  - `contextSchema` — query (required), maxDocuments (1-20, default 5), maxTokenBudget (100-50000, default 5000), category, sections, workspaceId
+  - `ingestSchema` — category (required), knowledgeBasePath (required)
+  - `similarSchema` — id (required), limit (1-20, default 5)
+  - `updateKnowledgeSchema` — partial schema for PUT body with all optional knowledge fields
+  - `createKnowledgeSchema` — slug, title, category (required), plus all optional fields
+  - `trackEventSchema` — userId (required), eventType (required), plus all optional analytics fields
+  - `createWorkspaceSchema`, `updateWorkspaceSchema`, `addMemberSchema`, `changeRoleSchema`
+  - `upgradePlanSchema` — planName enum validation
+  - `isValidKnowledgeCategory()` — validates category against KNOWNLEDGE_CATEGORIES list
+- Fixed `/src/app/api/knowledge/ingest/route.ts`:
+  - Added `requireAuth()` — ingestion now requires authentication
+  - Added Zod validation with `ingestSchema`
+  - Added path traversal prevention: `isPathSafe()` validates path starts with `/home/z/my-project/knowledge/`, rejects `..` sequences
+  - Validates category against known categories list
+  - Replaced `String(error)` with `handleApiError()`
+- Fixed `/src/app/api/knowledge/rebuild/route.ts`:
+  - Added `requireAuth()` — rebuild now requires authentication
+  - Replaced `String(error)` with `handleApiError()`
+- Fixed `/src/app/api/knowledge/search/route.ts`:
+  - Added Zod validation with `searchKnowledgeSchema`
+  - Replaced `String(error)` with `handleApiError()`
+  - Sanitized error messages in analytics tracking (no raw error exposure)
+- Fixed `/src/app/api/knowledge/context/route.ts`:
+  - Added Zod validation with `contextSchema`
+  - Replaced `String(error)` with `handleApiError()`
+  - Sanitized error messages in analytics tracking
+- Fixed `/src/app/api/knowledge/similar/route.ts`:
+  - Added Zod validation with `similarSchema` (validates query params)
+  - Replaced `String(error)` with `handleApiError()`
+- Fixed `/src/app/api/knowledge/stats/route.ts`:
+  - Replaced `String(error)` with `handleApiError()`
+- Fixed `/src/app/api/knowledge/[id]/route.ts`:
+  - Added Zod validation for PUT body with `updateKnowledgeSchema`
+  - Replaced all `String(error)` and raw error message exposure with `handleApiError()`
+  - Sanitized GET, PUT, DELETE error responses
+- Fixed `/src/app/api/knowledge/route.ts`:
+  - Added Zod validation for POST body with `createKnowledgeSchema`
+  - Replaced `String(error)` with `handleApiError()`
+  - Kept known "Unique constraint" → 409 handling
+- Fixed `/src/app/api/health/route.ts`:
+  - Removed exposure of database error messages (was `error.message` or "Unknown error")
+  - Now returns generic "Database connection failed" without connection string details
+  - Logs full error server-side with `console.error`
+- Fixed `/src/app/api/auth/logout/route.ts`:
+  - Added try/catch around `createClient()` and `signOut()`
+  - Don't expose Supabase error messages to client (was `error.message`)
+  - Returns generic "Failed to sign out" message; logs full error server-side
+- Fixed `/src/app/api/analytics/track/route.ts`:
+  - Added Zod validation with `trackEventSchema` (replaces manual if-checks)
+  - Replaced `console.error` + generic message with `handleApiError()`
+- Fixed `/src/app/api/seed/route.ts`:
+  - Added `requireAuth()` — seed endpoint now requires authentication (was fully public)
+  - Validates `ingestCategoryFilter` against known categories using `isValidKnowledgeCategory()`
+  - Replaced raw `error.message` exposure with `handleApiError()`
+- Lint: clean (zero errors)
+- Dev server: all routes compile successfully
+
+Stage Summary:
+- 2 new utility modules created: api-error.ts, api-validation.ts
+- 12 API route files fixed with security and validation improvements
+- All `String(error)` and raw error message exposure replaced with sanitized responses
+- Path traversal vulnerability fixed in knowledge/ingest endpoint
+- Authentication added to ingest, rebuild, and seed endpoints
+- Zod validation added to all endpoints accepting user input
+- Database connection strings no longer leaked via health endpoint
+- Supabase error messages no longer exposed via logout endpoint
+- In development mode, error messages are still visible for debugging
+- In production mode, generic messages are returned to prevent information leakage
+
+---
+Task ID: 5
+Agent: Main
+Task: Fix middleware, Supabase client validation, and add error state UI to dashboard tabs
+
+Work Log:
+- Fixed `src/middleware.ts`: Added try/catch around `updateSession` call so Supabase failures don't crash the entire request flow. Public routes still work when Supabase is down; protected routes fail at handler level.
+- Fixed `src/lib/supabase/client.ts`: Added env var validation (throws clear error if NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY missing). Converted to singleton pattern with lazy initialization.
+- Fixed `src/lib/supabase/server.ts`: Added env var validation. Added 10-second fetch timeout via AbortController to prevent hanging requests.
+- Fixed `src/lib/supabase/middleware.ts`: Added env var validation with graceful fallback (returns unauthenticated response if env vars missing, logs error). Removed hardcoded `!` assertions.
+- Added error state UI to all 8 dashboard tabs:
+  - `overview-tab.tsx`: Added `[error, setError]` state, error UI with AlertTriangle + RefreshCw + "Try Again" button, handleRetry function
+  - `knowledge-tab.tsx`: Added error state to main KnowledgeTab + fixed SearchResultDetail's silently swallowed `catch {}` with proper error state + retry button
+  - `search-tab.tsx`: Added error state with handleRetry calling handleSearch
+  - `api-keys-tab.tsx`: Added error state with handleRetry calling loadKeys
+  - `analytics-tab.tsx`: Added error state with handleRetry calling loadData
+  - `mcp-tab.tsx`: Added error state with handleRetry calling loadData
+  - `workspaces-tab.tsx`: Added error state with handleRetry calling loadWorkspaces
+  - `settings-tab.tsx`: Added error state with handleRetry calling loadData
+- Fixed `SearchResultDetail` in knowledge-tab: Removed empty `catch {}`, added error state that shows "Failed to load skill details" with retry button. Converted from useEffect with cancelled flag to useCallback + useEffect pattern.
+- Fixed Promise.all `.catch(() => null)` patterns:
+  - `overview-tab.tsx`: Replaced `.catch(() => null)` with explicit `safeFetch` helper
+  - `analytics-tab.tsx`: Replaced `.catch(() => null)` with explicit `safeFetch` helper
+  - `settings-tab.tsx`: Replaced `.catch(() => null)` with explicit `safeFetch` helper
+- Fixed `analytics-tab.tsx` NaN issue: `savingsPercent.toFixed(1)` can produce NaN. Added `isFinite()` check with `'0.0'` fallback in both the Savings Rate card and the comparison section.
+- Fixed `settings-tab.tsx`:
+  - Replaced fake profile save (setTimeout + toast.success) with `toast.info('Profile changes are saved automatically')`
+  - Persisted notification preferences to localStorage: Initial state reads from localStorage, onCheckedChange writes to localStorage
+  - Removed unused `profileSaving` state and `Loader2` import
+  - Updated help text from "Backend integration coming soon" to "saved to your browser automatically"
+- Lint: clean (zero errors)
+- Dev server: no errors, compiles successfully
+
+Stage Summary:
+- Middleware now resilient to Supabase outages (public routes still work)
+- All 3 Supabase clients validate env vars on initialization
+- Server client has 10s timeout to prevent hanging
+- All 8 dashboard tabs show consistent error UI (AlertTriangle icon + message + "Try Again" button)
+- SearchResultDetail no longer silently swallows errors
+- safeFetch helper makes partial-failure handling in Promise.all explicit
+- analytics-tab no longer displays NaN for savingsPercent
+- Settings notification preferences persist across sessions
+- Profile save no longer fakes a delay

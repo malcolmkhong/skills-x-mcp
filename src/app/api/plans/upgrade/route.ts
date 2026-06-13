@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 import { upgradeUserPlan, downgradeUserPlan, getUserPlan } from "@/lib/subscriptions";
+import { safeParseBody } from "@/lib/api-error";
 
 // ─── POST /api/plans/upgrade ─────────────────────────────────────────────────
 // Upgrade or downgrade the authenticated user's plan.
@@ -23,7 +24,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
 
     // Validate planName
     if (!body.planName || typeof body.planName !== "string") {

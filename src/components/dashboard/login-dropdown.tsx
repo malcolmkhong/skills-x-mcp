@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { toast } from 'sonner'
 
 // ─── Login Dropdown Panel (Client Component) ─────────────────────────────────
 // Uses Radix Popover for proper click-outside, focus, and keyboard support.
@@ -28,8 +29,13 @@ export function LoginDropdown() {
 
   const handleOAuthLogin = async (provider: 'github' | 'google') => {
     setLoading(provider)
-    await signInWithOAuth(provider)
-    // Page will redirect to OAuth provider, no need to setLoading(null)
+    try {
+      await signInWithOAuth(provider)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Sign in failed. Please try again.')
+    } finally {
+      setLoading(null)
+    }
   }
 
   return (

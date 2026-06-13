@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { BarChart3, TrendingUp, PieChart as PieIcon, Activity, Loader2 } from 'lucide-react'
+import { BarChart3, TrendingUp, PieChart as PieIcon, Activity, Loader2, AlertTriangle, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -28,30 +28,57 @@ export default function AnalyticsTab() {
   const [tokenSavings, setTokenSavings] = useState<TokenSavingsAnalytics | null>(null)
   const [usageEvents, setUsageEvents] = useState<UsageEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const safeFetch = async <T,>(promise: Promise<T>): Promise<T | null> => {
+    try { return await promise } catch { return null }
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const [dash, mcp, knowledge, tokens, usage] = await Promise.all([
-        apiFetch<DashboardStats>('/api/analytics/dashboard').catch(() => null),
-        apiFetch<MCPStats>('/api/analytics/mcp?days=30').catch(() => null),
-        apiFetch<KnowledgeAnalytics>('/api/analytics/knowledge').catch(() => null),
-        apiFetch<TokenSavingsAnalytics>('/api/analytics/tokens?days=30').catch(() => null),
-        apiFetch<{ events: UsageEvent[] }>('/api/analytics/usage?days=30').catch(() => ({ events: [] })),
+        safeFetch(apiFetch<DashboardStats>('/api/analytics/dashboard')),
+        safeFetch(apiFetch<MCPStats>('/api/analytics/mcp?days=30')),
+        safeFetch(apiFetch<KnowledgeAnalytics>('/api/analytics/knowledge')),
+        safeFetch(apiFetch<TokenSavingsAnalytics>('/api/analytics/tokens?days=30')),
+        safeFetch(apiFetch<{ events: UsageEvent[] }>('/api/analytics/usage?days=30')),
       ])
       setDashboard(dash)
       setMcpStats(mcp)
       setKnowledgeAnalytics(knowledge)
       setTokenSavings(tokens)
-      setUsageEvents((usage as { events: UsageEvent[] }).events || [])
-    } catch {
-      toast.error('Failed to load analytics')
+      setUsageEvents((usage as { events: UsageEvent[] })?.events || [])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load analytics'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
+
+  const handleRetry = () => {
+    setError(null)
+    loadData()
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -334,7 +361,7 @@ export default function AnalyticsTab() {
             <Card>
               <CardContent className="p-4 bg-violet-50 dark:bg-violet-950/30 rounded-xl">
                 <p className="text-xs text-muted-foreground">Savings Rate</p>
-                <p className="text-2xl font-bold text-violet-600">{tokenSavings?.comparison.savingsPercent.toFixed(1) ?? 0}%</p>
+                <p className="text-2xl font-bold text-violet-600">{(() => { const sp = tokenSavings?.comparison.savingsPercent; return (sp != null && isFinite(sp)) ? sp.toFixed(1) : '0.0' })()}%</p>
               </CardContent>
             </Card>
           </div>
@@ -383,7 +410,7 @@ export default function AnalyticsTab() {
                   </div>
                 </div>
                 <p className="text-center text-sm text-emerald-600 font-medium">
-                  {tokenSavings.comparison.savingsPercent.toFixed(1)}% savings
+                  {(() => { const sp = tokenSavings.comparison.savingsPercent; return (sp != null && isFinite(sp)) ? sp.toFixed(1) : '0.0' })()}% savings
                 </p>
               </CardContent>
             </Card>

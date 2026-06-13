@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   Plus, Copy, RotateCw, Ban, Eye, Key, Loader2,
   Shield, CheckCircle2, XCircle, Clock, Zap,
+  AlertTriangle, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,8 @@ export default function ApiKeysTab() {
   const [saving, setSaving] = useState(false)
   const [viewUsage, setViewUsage] = useState<ApiKeyResponse | null>(null)
   const [usageStats, setUsageStats] = useState<ApiKeyUsageStat | null>(null)
+  const [usageError, setUsageError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Form
   const [form, setForm] = useState({
@@ -40,11 +43,14 @@ export default function ApiKeysTab() {
 
   const loadKeys = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const data = await apiFetch<{ apiKeys: ApiKeyResponse[] }>('/api/keys')
       setKeys(data.apiKeys || [])
-    } catch {
-      toast.error('Failed to load API keys')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load API keys'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -115,23 +121,48 @@ export default function ApiKeysTab() {
 
   const handleViewUsage = async (key: ApiKeyResponse) => {
     setViewUsage(key)
+    setUsageError(null)
+    setUsageStats(null)
     try {
       const data = await apiFetch<ApiKeyUsageStat>(`/api/keys/${key.id}/usage?days=30`)
       setUsageStats(data)
-    } catch {
-      setUsageStats(null)
+    } catch (err) {
+      setUsageError(err instanceof Error ? err.message : 'Failed to load usage data')
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success('Copied to clipboard')
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Copied to clipboard')
+    } catch {
+      toast.error('Failed to copy to clipboard')
+    }
   }
 
   const getKeyStatus = (key: ApiKeyResponse) => {
     if (key.isRevoked) return { label: 'Revoked', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-950/30', icon: XCircle }
     if (key.expiresAt && new Date(key.expiresAt) < new Date()) return { label: 'Expired', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/30', icon: Clock }
     return { label: 'Active', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/30', icon: CheckCircle2 }
+  }
+
+  const handleRetry = () => {
+    setError(null)
+    loadKeys()
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
+      </div>
+    )
   }
 
   if (loading) {
@@ -371,12 +402,14 @@ export default function ApiKeysTab() {
       </Dialog>
 
       {/* Usage Dialog */}
-      <Dialog open={!!viewUsage} onOpenChange={(open) => { if (!open) { setViewUsage(null); setUsageStats(null) } }}>
+      <Dialog open={!!viewUsage} onOpenChange={(open) => { if (!open) { setViewUsage(null); setUsageStats(null); setUsageError(null) } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Key Usage: {viewUsage?.name}</DialogTitle>
           </DialogHeader>
-          {usageStats ? (
+          {usageError ? (
+            <div className="text-center py-6 text-red-500 text-sm">{usageError}</div>
+          ) : usageStats ? (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center p-3 rounded-lg bg-muted/50">

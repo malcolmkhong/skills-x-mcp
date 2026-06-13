@@ -3,6 +3,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listKnowledge, createKnowledge, parseDocumentFields } from '@/lib/knowledge/database';
 import { getAuthIdentity } from '@/lib/auth-utils';
+import { validate, createKnowledgeSchema } from '@/lib/api-validation';
+import { handleApiError, apiError, safeParseBody } from '@/lib/api-error';
 import type { KnowledgeCategory } from '@/types/knowledge';
 
 export async function GET(request: NextRequest) {
@@ -27,17 +29,11 @@ export async function GET(request: NextRequest) {
         },
       });
       if (!membership) {
-        return NextResponse.json(
-          { error: 'You are not a member of this workspace' },
-          { status: 403 }
-        );
+        return apiError('You are not a member of this workspace', 403);
       }
     } else if (workspaceId && !userId) {
       // Unauthenticated user trying to access workspace knowledge
-      return NextResponse.json(
-        { error: 'Authentication required to access workspace knowledge' },
-        { status: 401 }
-      );
+      return apiError('Authentication required to access workspace knowledge', 401);
     }
 
     const documents = await listKnowledge(
@@ -51,7 +47,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({ documents: sanitized });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return handleApiError(error, 'knowledge/GET');
   }
 }
 
@@ -60,76 +56,61 @@ export async function POST(request: NextRequest) {
     // Require authentication for creating knowledge
     const identity = await getAuthIdentity(request.headers);
     if (!identity) {
-      return NextResponse.json(
-        { error: 'Authentication required to create knowledge' },
-        { status: 401 }
-      );
+      return apiError('Authentication required to create knowledge', 401);
     }
 
     const userId = identity.userId;
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID not found in session' },
-        { status: 401 }
-      );
+      return apiError('User ID not found in session', 401);
     }
 
-    const body = await request.json();
-    const {
-      slug, title, category, description, tags, intents, dependencies,
-      antiPatterns, implementationSteps, rules, examples, references,
-      schemaVersion, workspaceId, isPublic,
-    } = body;
-    
-    if (!slug || !title || !category) {
-      return NextResponse.json(
-        { error: 'slug, title, and category are required' },
-        { status: 400 }
-      );
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
+    const validation = validate(createKnowledgeSchema, body);
+
+    if (validation.error) {
+      return apiError(validation.error, 400);
     }
+
+    const data = validation.data;
 
     // If workspaceId is provided, verify the user is a member with write access
-    if (workspaceId) {
+    if (data.workspaceId) {
       const { db } = await import('@/lib/db');
       const membership = await db.workspaceMember.findUnique({
         where: {
           workspaceId_userId: {
-            workspaceId,
+            workspaceId: data.workspaceId,
             userId,
           },
         },
       });
       if (!membership) {
-        return NextResponse.json(
-          { error: 'You are not a member of this workspace' },
-          { status: 403 }
-        );
+        return apiError('You are not a member of this workspace', 403);
       }
       if (membership.role === 'viewer') {
-        return NextResponse.json(
-          { error: 'Viewers cannot create knowledge in this workspace' },
-          { status: 403 }
-        );
+        return apiError('Viewers cannot create knowledge in this workspace', 403);
       }
     }
     
     const document = await createKnowledge({
-      slug,
-      title,
-      category,
-      description,
-      tags,
-      intents,
-      dependencies,
-      antiPatterns,
-      implementationSteps,
-      rules,
-      examples,
-      references,
-      schemaVersion,
-      workspaceId: workspaceId || null,
+      slug: data.slug,
+      title: data.title,
+      category: data.category as KnowledgeCategory,
+      description: data.description,
+      tags: data.tags,
+      intents: data.intents,
+      dependencies: data.dependencies,
+      antiPatterns: data.antiPatterns,
+      implementationSteps: data.implementationSteps,
+      rules: data.rules,
+      examples: data.examples,
+      references: data.references,
+      schemaVersion: data.schemaVersion,
+      workspaceId: data.workspaceId || null,
       createdBy: userId,
-      isPublic: isPublic !== undefined ? isPublic : (workspaceId ? false : true),
+      isPublic: data.isPublic !== undefined ? data.isPublic : (data.workspaceId ? false : true),
     });
     
     // Track the creation event
@@ -138,18 +119,18 @@ export async function POST(request: NextRequest) {
       userId,
       eventType: 'api_call',
       knowledgeId: document.id,
-      workspaceId: workspaceId || undefined,
+      workspaceId: data.workspaceId || undefined,
       success: true,
     });
 
     return NextResponse.json({ 
       document: parseDocumentFields(document)
     }, { status: 201 });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes('Unique constraint')) {
-      return NextResponse.json({ error: 'A document with this slug already exists' }, { status: 409 });
+  } catch (error) {
+    // Surface known "unique constraint" errors as 409
+    if (error instanceof Error && error.message.includes('Unique constraint')) {
+      return apiError('A document with this slug already exists', 409);
     }
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error, 'knowledge/POST');
   }
 }

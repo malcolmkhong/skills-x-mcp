@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-utils';
 import { listWorkspaces, createWorkspace } from '@/lib/workspaces';
 import { db } from '@/lib/db';
+import { safeParseBody } from '@/lib/api-error';
 
 export async function GET() {
   try {
@@ -43,7 +44,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const body = await request.json();
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
     const { name, description, icon } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {

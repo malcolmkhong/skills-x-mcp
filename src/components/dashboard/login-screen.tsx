@@ -6,6 +6,7 @@ import { Brain, Loader2, Github, Mail } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { toast } from 'sonner'
 
 export default function LoginScreen() {
   const { signInWithOAuth } = useAuth()
@@ -13,8 +14,13 @@ export default function LoginScreen() {
 
   const handleOAuthLogin = async (provider: 'github' | 'google') => {
     setLoading(provider)
-    await signInWithOAuth(provider)
-    // No need to setLoading(false) — the page will redirect to OAuth provider
+    try {
+      await signInWithOAuth(provider)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Sign in failed. Please try again.')
+    } finally {
+      setLoading(null)
+    }
   }
 
   return (

@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { seedDatabase } from "@/lib/seed";
 import { ingestKnowledgeBase, ingestCategory } from "@/lib/knowledge/ingestion";
+import { requireAuth } from "@/lib/auth-utils";
+import { isValidKnowledgeCategory } from "@/lib/api-validation";
+import { handleApiError, apiError, safeParseBody } from "@/lib/api-error";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
+    // Require authentication — seeding and ingestion are privileged operations
+    await requireAuth();
+
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
     
     // Support ingestion-only mode via ?ingest=true or body.ingest
     const { searchParams } = new URL(request.url);
@@ -12,6 +20,14 @@ export async function POST(request: NextRequest) {
     const ingestCategoryFilter = searchParams.get("category") || body.category;
     
     if (ingestMode) {
+      // Validate category against known categories if provided
+      if (ingestCategoryFilter && !isValidKnowledgeCategory(ingestCategoryFilter)) {
+        return apiError(
+          `Invalid category filter. Must be a known knowledge category.`,
+          400
+        );
+      }
+
       let result;
       if (ingestCategoryFilter) {
         result = await ingestCategory(ingestCategoryFilter as any);
@@ -55,14 +71,6 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Seed error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to seed database",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, "seed");
   }
 }

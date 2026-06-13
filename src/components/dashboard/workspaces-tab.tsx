@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   Plus, Trash2, UserPlus, Users, Shield, Crown,
   Loader2, MoreHorizontal, X,
+  AlertTriangle, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,17 +40,24 @@ export default function WorkspacesTab() {
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [newMemberRole, setNewMemberRole] = useState('member')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
+  const [changingRoleMemberId, setChangingRoleMemberId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Create form
   const [form, setForm] = useState({ name: '', description: '', icon: '' })
 
   const loadWorkspaces = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const data = await apiFetch<{ workspaces: WorkspaceResponse[] }>('/api/workspaces')
       setWorkspaces(data.workspaces || [])
-    } catch {
-      toast.error('Failed to load workspaces')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load workspaces'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -62,8 +70,9 @@ export default function WorkspacesTab() {
     try {
       const data = await apiFetch<{ members: WorkspaceMemberResponse[] }>(`/api/workspaces/${ws.id}/members`)
       setMembers(data.members || [])
-    } catch {
+    } catch (err) {
       setMembers([])
+      toast.error(err instanceof Error ? err.message : 'Failed to load members')
     }
   }
 
@@ -87,6 +96,7 @@ export default function WorkspacesTab() {
 
   const handleDelete = async () => {
     if (!deleteWs) return
+    setDeleting(true)
     try {
       await apiFetch(`/api/workspaces/${deleteWs.id}`, { method: 'DELETE' })
       toast.success('Workspace deleted')
@@ -95,6 +105,8 @@ export default function WorkspacesTab() {
       loadWorkspaces()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -120,17 +132,21 @@ export default function WorkspacesTab() {
 
   const handleRemoveMember = async (memberId: string) => {
     if (!selectedWs) return
+    setRemovingMemberId(memberId)
     try {
       await apiFetch(`/api/workspaces/${selectedWs.id}/members?memberId=${memberId}`, { method: 'DELETE' })
       toast.success('Member removed')
       loadMembers(selectedWs)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove member')
+    } finally {
+      setRemovingMemberId(null)
     }
   }
 
   const handleChangeRole = async (memberId: string, role: string) => {
     if (!selectedWs) return
+    setChangingRoleMemberId(memberId)
     try {
       await apiFetch(`/api/workspaces/${selectedWs.id}/members`, {
         method: 'PATCH',
@@ -140,6 +156,8 @@ export default function WorkspacesTab() {
       loadMembers(selectedWs)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update role')
+    } finally {
+      setChangingRoleMemberId(null)
     }
   }
 
@@ -155,6 +173,25 @@ export default function WorkspacesTab() {
     admin: Shield,
     member: Users,
     viewer: Users,
+  }
+
+  const handleRetry = () => {
+    setError(null)
+    loadWorkspaces()
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
+      </div>
+    )
   }
 
   if (loading) {
@@ -276,17 +313,17 @@ export default function WorkspacesTab() {
                           {selectedWs.userRole !== 'viewer' && member.role !== 'owner' && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7">
-                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!!removingMemberId || !!changingRoleMemberId}>
+                                  {(removingMemberId === member.id || changingRoleMemberId === member.id) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MoreHorizontal className="h-3.5 w-3.5" />}
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {['admin', 'member', 'viewer'].filter(r => r !== member.role).map(role => (
-                                  <DropdownMenuItem key={role} className="text-xs" onClick={() => handleChangeRole(member.id, role)}>
+                                  <DropdownMenuItem key={role} className="text-xs" onClick={() => handleChangeRole(member.id, role)} disabled={!!changingRoleMemberId}>
                                     Change to {role}
                                   </DropdownMenuItem>
                                 ))}
-                                <DropdownMenuItem className="text-red-600 text-xs" onClick={() => handleRemoveMember(member.id)}>
+                                <DropdownMenuItem className="text-red-600 text-xs" onClick={() => handleRemoveMember(member.id)} disabled={!!removingMemberId}>
                                   <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Remove
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -351,7 +388,9 @@ export default function WorkspacesTab() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

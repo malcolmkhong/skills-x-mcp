@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   Server, CheckCircle2, XCircle, AlertTriangle, Copy,
   Terminal, Code2, MonitorSmartphone, Webhook, Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -127,18 +128,22 @@ export default function McpTab() {
   const [mcpHealth, setMcpHealth] = useState<{ status: string; version?: string; authenticatedConnections?: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [connTab, setConnTab] = useState('claude-code')
+  const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const [appHealth, mcpH] = await Promise.all([
         apiFetch<HealthStatus>('/api/health').catch(() => null),
         fetch('/api/health?XTransformPort=3002').then(r => r.json()).catch(() => null),
       ])
-      setHealth(appHealth)
-      setMcpHealth(mcpH)
-    } catch {
-      toast.error('Failed to check server status')
+      setHealth(appHealth ?? null)
+      setMcpHealth(mcpH ?? null)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to check server status'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -146,9 +151,13 @@ export default function McpTab() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success('Copied to clipboard')
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Copied to clipboard')
+    } catch {
+      toast.error('Failed to copy to clipboard')
+    }
   }
 
   const sseUrl = typeof window !== 'undefined' ? `${window.location.origin}/sse?XTransformPort=3002` : '/sse?XTransformPort=3002'
@@ -193,6 +202,25 @@ export default function McpTab() {
       icon: Webhook,
       config: `# SSE Endpoint\n${sseUrl}\n\n# With API Key Authentication\n${sseUrl}&apiKey=ixk_YOUR_KEY_HERE\n\n# HTTP Headers\nAuthorization: Bearer ixk_YOUR_KEY_HERE`,
     },
+  }
+
+  const handleRetry = () => {
+    setError(null)
+    loadData()
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
+      </div>
+    )
   }
 
   if (loading) {

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   Search, Sliders, Brain, FileText, Loader2, Sparkles,
   ChevronDown, ChevronUp,
+  AlertTriangle, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -38,10 +39,12 @@ export default function SearchTab() {
   const [maxDocs, setMaxDocs] = useState(5)
   const [expandedResult, setExpandedResult] = useState<string | null>(null)
   const [history, setHistory] = useState<SearchHistoryItem[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   const handleSearch = async () => {
     if (!query.trim()) return
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams({ query, limit: '10' })
       if (category !== 'all') params.set('category', category)
@@ -49,7 +52,9 @@ export default function SearchTab() {
       setResults(data.results || [])
       setHistory(prev => [{ query, timestamp: new Date(), resultCount: data.results?.length ?? 0 }, ...prev.slice(0, 19)])
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Search failed')
+      const msg = err instanceof Error ? err.message : 'Search failed'
+      setError(msg)
+      toast.error(msg)
       setResults([])
     } finally {
       setLoading(false)
@@ -83,6 +88,25 @@ export default function SearchTab() {
     categoryScore: 'text-amber-500',
     intentScore: 'text-violet-500',
     usageWeight: 'text-rose-500',
+  }
+
+  const handleRetry = () => {
+    setError(null)
+    handleSearch()
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
+      </div>
+    )
   }
 
   return (

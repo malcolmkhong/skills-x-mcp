@@ -5,6 +5,8 @@ import { generateEmbedding } from '@/lib/knowledge/embedding';
 import { hybridSearch, recordRetrieval } from '@/lib/knowledge/vectorSearch';
 import { getAuthIdentity } from '@/lib/auth-utils';
 import { trackEvent } from '@/lib/analytics';
+import { validate, searchKnowledgeSchema } from '@/lib/api-validation';
+import { handleApiError, apiError } from '@/lib/api-error';
 import type { KnowledgeCategory } from '@/types/knowledge';
 
 export async function POST(request: NextRequest) {
@@ -18,15 +20,22 @@ export async function POST(request: NextRequest) {
     userId = identity?.userId;
     workspaceId = identity?.method === 'apikey' ? identity.apiKey.workspaceId ?? undefined : undefined;
 
-    const body = await request.json();
-    const { query, limit = 5, category, minScore = 0.1, workspaceId: bodyWorkspaceId } = body;
-    
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return apiError('Invalid JSON body', 400);
+    }
+    const validation = validate(searchKnowledgeSchema, body);
+
+    if (validation.error) {
+      return apiError(validation.error, 400);
+    }
+
+    const { query, limit, minScore, category, workspaceId: bodyWorkspaceId } = validation.data;
+
     // Use workspaceId from body if provided, otherwise from API key context
     const effectiveWorkspaceId = bodyWorkspaceId || workspaceId;
-
-    if (!query) {
-      return NextResponse.json({ error: 'query is required' }, { status: 400 });
-    }
 
     // If workspaceId is specified, verify the user is a member
     if (effectiveWorkspaceId && userId) {
@@ -40,10 +49,7 @@ export async function POST(request: NextRequest) {
         },
       });
       if (!membership) {
-        return NextResponse.json(
-          { error: 'You are not a member of this workspace' },
-          { status: 403 }
-        );
+        return apiError('You are not a member of this workspace', 403);
       }
     }
     
@@ -87,10 +93,10 @@ export async function POST(request: NextRequest) {
         eventType: 'search',
         durationMs: Date.now() - startTime,
         success: false,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
         workspaceId,
       });
     }
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return handleApiError(error, 'knowledge/search');
   }
 }

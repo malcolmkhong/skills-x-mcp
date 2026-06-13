@@ -1,6 +1,8 @@
 // API: Get/Update/Delete individual knowledge document
 import { NextRequest, NextResponse } from 'next/server';
 import { getKnowledgeById, getKnowledgeBySlug, updateKnowledge, deleteKnowledge, hardDeleteKnowledge, parseDocumentFields } from '@/lib/knowledge/database';
+import { validate, updateKnowledgeSchema } from '@/lib/api-validation';
+import { handleApiError, apiError, safeParseBody } from '@/lib/api-error';
 
 export async function GET(
   request: NextRequest,
@@ -16,14 +18,14 @@ export async function GET(
     }
     
     if (!document) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+      return apiError('Document not found', 404);
     }
     
     return NextResponse.json({ 
       document: parseDocumentFields(document)
     });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return handleApiError(error, 'knowledge/[id]/GET');
   }
 }
 
@@ -33,32 +35,22 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { title, category, description, tags, intents, dependencies, antiPatterns, implementationSteps, rules, examples, references } = body;
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
+
+    const validation = validate(updateKnowledgeSchema, body);
+    if (validation.error) {
+      return apiError(validation.error, 400);
+    }
     
-    const document = await updateKnowledge(id, {
-      title,
-      category,
-      description,
-      tags,
-      intents,
-      dependencies,
-      antiPatterns,
-      implementationSteps,
-      rules,
-      examples,
-      references,
-    });
+    const document = await updateKnowledge(id, validation.data);
     
     return NextResponse.json({ 
       document: parseDocumentFields(document)
     });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes('not found')) {
-      return NextResponse.json({ error: message }, { status: 404 });
-    }
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error, 'knowledge/[id]/PUT');
   }
 }
 
@@ -78,11 +70,7 @@ export async function DELETE(
     }
     
     return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes('not found')) {
-      return NextResponse.json({ error: message }, { status: 404 });
-    }
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error, 'knowledge/[id]/DELETE');
   }
 }

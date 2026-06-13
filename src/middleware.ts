@@ -56,7 +56,18 @@ export async function middleware(request: NextRequest) {
 
   // ─── Refresh Supabase auth session on every request ───────────────
   // This ensures the Supabase cookies are always up to date.
-  const { response, user: supabaseUser } = await updateSession(request);
+  let supabaseUser = null;
+  let response = NextResponse.next({ request });
+
+  try {
+    const result = await updateSession(request);
+    response = result.response;
+    supabaseUser = result.user;
+  } catch (error) {
+    console.error('[Middleware] Supabase session error:', error);
+    // If Supabase is down, still allow public routes to work
+    // Continue without auth — protected routes will fail at the handler level
+  }
 
   // Only apply auth checks to API routes
   if (!pathname.startsWith("/api/")) {

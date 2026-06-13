@@ -79,12 +79,14 @@ export default function HomePage() {
         const res = await fetch('/api/health')
         const data = await res.json()
         if (data.userCount === 0 && !cancelled) {
-          await fetch('/api/seed', { method: 'POST' })
-          if (!cancelled) toast.success('Database seeded with demo data')
+          const seedRes = await fetch('/api/seed', { method: 'POST' })
+          if (!cancelled && seedRes.ok) toast.success('Database seeded with demo data')
+          else if (!cancelled && !seedRes.ok) toast.error('Failed to seed database')
         }
-        if (!cancelled) seededRef.current = true
       } catch {
         // Ignore seed errors
+      } finally {
+        if (!cancelled) seededRef.current = true
       }
     }
     doSeed()
@@ -101,8 +103,12 @@ export default function HomePage() {
   }, [])
 
   const handleSignOut = useCallback(async () => {
-    await signOut()
-    window.location.href = '/'
+    try {
+      await signOut()
+      window.location.href = '/'
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Sign out failed. Please try again.')
+    }
   }, [signOut])
 
   // Loading state
@@ -121,7 +127,7 @@ export default function HomePage() {
 
   // ─── Authenticated — show dashboard ─────────────────────────────────
   const userName = user.name || user.email || 'User'
-  const userInitial = userName[0].toUpperCase()
+  const userInitial = (userName || 'U')[0].toUpperCase()
 
   const renderTab = () => {
     switch (activeTab) {

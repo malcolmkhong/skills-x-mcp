@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   FileText, Zap, Server, Brain, Plus, Key, Search,
   CheckCircle2, XCircle, AlertTriangle, ArrowRight, Activity,
+  RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -28,26 +29,34 @@ export default function OverviewTab({ onNavigate }: OverviewTabProps) {
   const [health, setHealth] = useState<HealthStatus | null>(null)
   const [mcpHealth, setMcpHealth] = useState<{ status: string } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const safeFetch = async <T,>(promise: Promise<T>): Promise<T | null> => {
+    try { return await promise } catch { return null }
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const [dash, kStats, appHealth] = await Promise.all([
-        apiFetch<DashboardStats>('/api/analytics/dashboard').catch(() => null),
-        apiFetch<KnowledgeStats>('/api/knowledge/stats').catch(() => null),
-        apiFetch<HealthStatus>('/api/health').catch(() => null),
+        safeFetch(apiFetch<DashboardStats>('/api/analytics/dashboard')),
+        safeFetch(apiFetch<KnowledgeStats>('/api/knowledge/stats')),
+        safeFetch(apiFetch<HealthStatus>('/api/health')),
       ])
       setDashboard(dash)
       setKnowledgeStats(kStats)
       setHealth(appHealth)
 
       // Check MCP server health
-      const mcpH = await fetch('/api/health?XTransformPort=3002')
-        .then(r => r.json())
-        .catch(() => null)
+      const mcpH = await safeFetch(
+        fetch('/api/health?XTransformPort=3002').then(r => r.json())
+      )
       setMcpHealth(mcpH)
-    } catch {
-      toast.error('Failed to load dashboard data')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load dashboard data'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -111,6 +120,25 @@ export default function OverviewTab({ onNavigate }: OverviewTabProps) {
       bg: 'bg-violet-50 dark:bg-violet-950/30',
     },
   ]
+
+  const handleRetry = () => {
+    setError(null)
+    loadData()
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

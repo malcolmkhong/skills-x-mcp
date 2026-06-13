@@ -313,13 +313,37 @@ export interface HealthStatus {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `API error ${res.status}`)
-  return data
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+
+  try {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      signal: controller.signal,
+      ...options,
+    })
+
+    if (!res.ok) {
+      let message = `API error ${res.status}`
+      try {
+        const data = await res.json()
+        message = data.error || data.message || message
+      } catch {
+        // Response is not JSON
+      }
+      throw new Error(message)
+    }
+
+    const data = await res.json() as T
+    return data
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again.')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 export function formatDate(d: string): string {

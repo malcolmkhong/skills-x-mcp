@@ -11,6 +11,7 @@ import {
   ArrowLeftRight, Truck, Siren, GitMerge, FileQuestion, Loader2,
   BookOpen, Lightbulb, ListOrdered, Link2, ArrowUpRight, Tag,
   ChevronUp, X, PanelLeftClose, PanelLeft, Hash,
+  AlertTriangle, RefreshCw,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -427,10 +428,12 @@ export default function KnowledgeTab() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [treePanelCollapsed, setTreePanelCollapsed] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Load tree data
   const loadTree = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/knowledge/tree')
       const data = await res.json()
@@ -441,8 +444,10 @@ export default function KnowledgeTab() {
         const firstLevelIds = data.tree.map((n: TreeNode) => n.id).filter((id: string) => data.tree.find((n: TreeNode) => n.id === id)?.children?.length)
         setExpandedIds(new Set(firstLevelIds))
       }
-    } catch {
-      toast.error('Failed to load knowledge tree')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load knowledge tree'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -507,6 +512,26 @@ export default function KnowledgeTab() {
   const collapseAll = useCallback(() => {
     setExpandedIds(new Set())
   }, [])
+
+  // Error state
+  const handleRetry = () => {
+    setError(null)
+    loadTree()
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
+      </div>
+    )
+  }
 
   // Loading state
   if (loading) {
@@ -810,26 +835,33 @@ function CategoryOverview({ node, skills, onSelect }: { node: TreeNode; skills: 
 function SearchResultDetail({ skillName }: { skillName: string }) {
   const [skill, setSkill] = useState<SkillData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchSkill = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/knowledge/tree?skill=${encodeURIComponent(skillName)}`)
+      const data = await res.json()
+      if (data.skill) {
+        setSkill(data.skill)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load skill details'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [skillName])
 
   useEffect(() => {
-    let cancelled = false
-    const fetchSkill = async () => {
-      setLoading(true)
-      try {
-        const res = await fetch(`/api/knowledge/tree?skill=${encodeURIComponent(skillName)}`)
-        const data = await res.json()
-        if (!cancelled && data.skill) {
-          setSkill(data.skill)
-        }
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
     fetchSkill()
-    return () => { cancelled = true }
-  }, [skillName])
+  }, [fetchSkill])
+
+  const handleRetry = () => {
+    setError(null)
+    fetchSkill()
+  }
 
   if (loading) {
     return (
@@ -837,6 +869,20 @@ function SearchResultDetail({ skillName }: { skillName: string }) {
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-4 w-96" />
         <Skeleton className="h-32 w-full" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">Failed to load skill details</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
       </div>
     )
   }

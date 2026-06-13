@@ -188,94 +188,109 @@ function formatPlan(plan: {
  * Get all active subscription plans, ordered by sortOrder.
  */
 export async function getPlans(): Promise<PlanWithFeatures[]> {
-  const plans = await db.subscriptionPlan.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
-  });
+  try {
+    const plans = await db.subscriptionPlan.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+    });
 
-  return plans.map(formatPlan);
+    return plans.map(formatPlan);
+  } catch (error) {
+    console.error('[getPlans]', error)
+    throw new Error(`Failed to getPlans: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
 /**
  * Get a specific subscription plan by name.
  */
 export async function getPlanByName(name: string): Promise<PlanWithFeatures | null> {
-  const plan = await db.subscriptionPlan.findUnique({
-    where: { name },
-  });
+  try {
+    const plan = await db.subscriptionPlan.findUnique({
+      where: { name },
+    });
 
-  if (!plan) return null;
+    if (!plan) return null;
 
-  return formatPlan(plan);
+    return formatPlan(plan);
+  } catch (error) {
+    console.error('[getPlanByName]', error)
+    throw new Error(`Failed to getPlanByName: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
 /**
  * Get the user's current plan details including limits and features.
  */
 export async function getUserPlan(userId: string): Promise<UserPlanDetails | null> {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: {
-      plan: true,
-      currentPeriodEnd: true,
-    },
-  });
-
-  if (!user) return null;
-
-  const subscriptionPlanName = userPlanToSubscriptionPlan(user.plan);
-  const plan = await db.subscriptionPlan.findUnique({
-    where: { name: subscriptionPlanName },
-  });
-
-  if (!plan) {
-    // Fallback to free plan if the user's plan doesn't exist
-    const freePlan = await db.subscriptionPlan.findUnique({
-      where: { name: "free" },
+  try {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        plan: true,
+        currentPeriodEnd: true,
+      },
     });
 
-    if (!freePlan) return null;
+    if (!user) return null;
+
+    const subscriptionPlanName = userPlanToSubscriptionPlan(user.plan);
+    const plan = await db.subscriptionPlan.findUnique({
+      where: { name: subscriptionPlanName },
+    });
+
+    if (!plan) {
+      // Fallback to free plan if the user's plan doesn't exist
+      const freePlan = await db.subscriptionPlan.findUnique({
+        where: { name: "free" },
+      });
+
+      if (!freePlan) return null;
+
+      return {
+        planName: "free",
+        subscriptionPlan: "free",
+        displayName: freePlan.displayName,
+        description: freePlan.description,
+        price: freePlan.price,
+        currency: freePlan.currency,
+        interval: freePlan.interval,
+        limits: {
+          apiRequestsPerMonth: freePlan.apiRequestsPerMonth,
+          apiKeysLimit: freePlan.apiKeysLimit,
+          knowledgeUnitsLimit: freePlan.knowledgeUnitsLimit,
+          teamMembersLimit: freePlan.teamMembersLimit,
+          workspacesLimit: freePlan.workspacesLimit,
+        },
+        features: parseFeatures(freePlan.features),
+        isPopular: freePlan.isPopular,
+        currentPeriodEnd: user.currentPeriodEnd,
+      };
+    }
 
     return {
-      planName: "free",
-      subscriptionPlan: "free",
-      displayName: freePlan.displayName,
-      description: freePlan.description,
-      price: freePlan.price,
-      currency: freePlan.currency,
-      interval: freePlan.interval,
+      planName: user.plan,
+      subscriptionPlan: subscriptionPlanName,
+      displayName: plan.displayName,
+      description: plan.description,
+      price: plan.price,
+      currency: plan.currency,
+      interval: plan.interval,
       limits: {
-        apiRequestsPerMonth: freePlan.apiRequestsPerMonth,
-        apiKeysLimit: freePlan.apiKeysLimit,
-        knowledgeUnitsLimit: freePlan.knowledgeUnitsLimit,
-        teamMembersLimit: freePlan.teamMembersLimit,
-        workspacesLimit: freePlan.workspacesLimit,
+        apiRequestsPerMonth: plan.apiRequestsPerMonth,
+        apiKeysLimit: plan.apiKeysLimit,
+        knowledgeUnitsLimit: plan.knowledgeUnitsLimit,
+        teamMembersLimit: plan.teamMembersLimit,
+        workspacesLimit: plan.workspacesLimit,
       },
-      features: parseFeatures(freePlan.features),
-      isPopular: freePlan.isPopular,
+      features: parseFeatures(plan.features),
+      isPopular: plan.isPopular,
       currentPeriodEnd: user.currentPeriodEnd,
     };
+  } catch (error) {
+    console.error('[getUserPlan]', error)
+    throw new Error(`Failed to getUserPlan: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  return {
-    planName: user.plan,
-    subscriptionPlan: subscriptionPlanName,
-    displayName: plan.displayName,
-    description: plan.description,
-    price: plan.price,
-    currency: plan.currency,
-    interval: plan.interval,
-    limits: {
-      apiRequestsPerMonth: plan.apiRequestsPerMonth,
-      apiKeysLimit: plan.apiKeysLimit,
-      knowledgeUnitsLimit: plan.knowledgeUnitsLimit,
-      teamMembersLimit: plan.teamMembersLimit,
-      workspacesLimit: plan.workspacesLimit,
-    },
-    features: parseFeatures(plan.features),
-    isPopular: plan.isPopular,
-    currentPeriodEnd: user.currentPeriodEnd,
-  };
 }
 
 /**
@@ -283,8 +298,13 @@ export async function getUserPlan(userId: string): Promise<UserPlanDetails | nul
  * Returns the SubscriptionPlan record directly.
  */
 export async function getPlanLimits(planName: string): Promise<PlanWithFeatures | null> {
-  const subscriptionPlanName = userPlanToSubscriptionPlan(planName);
-  return getPlanByName(subscriptionPlanName);
+  try {
+    const subscriptionPlanName = userPlanToSubscriptionPlan(planName);
+    return await getPlanByName(subscriptionPlanName);
+  } catch (error) {
+    console.error('[getPlanLimits]', error)
+    throw new Error(`Failed to getPlanLimits: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
 /**
@@ -295,149 +315,159 @@ export async function checkUserLimit(
   userId: string,
   limitType: LimitType
 ): Promise<LimitCheckResult> {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { plan: true },
-  });
+  try {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
+    });
 
-  if (!user) {
-    return {
-      allowed: false,
-      used: 0,
-      limit: 0,
-      remaining: 0,
-      limitType,
-    };
-  }
-
-  const subscriptionPlanName = userPlanToSubscriptionPlan(user.plan);
-  const plan = await db.subscriptionPlan.findUnique({
-    where: { name: subscriptionPlanName },
-  });
-
-  if (!plan) {
-    return {
-      allowed: false,
-      used: 0,
-      limit: 0,
-      remaining: 0,
-      limitType,
-    };
-  }
-
-  let used = 0;
-  let limit = 0;
-
-  switch (limitType) {
-    case "apiRequests": {
-      limit = plan.apiRequestsPerMonth;
-      // Count this month's usage events
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      used = await db.usageEvent.count({
-        where: {
-          userId,
-          createdAt: { gte: startOfMonth },
-        },
-      });
-      break;
+    if (!user) {
+      return {
+        allowed: false,
+        used: 0,
+        limit: 0,
+        remaining: 0,
+        limitType,
+      };
     }
 
-    case "apiKeys": {
-      limit = plan.apiKeysLimit;
-      used = await db.apiKey.count({
-        where: {
-          userId,
-          isRevoked: false,
-        },
-      });
-      break;
+    const subscriptionPlanName = userPlanToSubscriptionPlan(user.plan);
+    const plan = await db.subscriptionPlan.findUnique({
+      where: { name: subscriptionPlanName },
+    });
+
+    if (!plan) {
+      return {
+        allowed: false,
+        used: 0,
+        limit: 0,
+        remaining: 0,
+        limitType,
+      };
     }
 
-    case "knowledgeUnits": {
-      limit = plan.knowledgeUnitsLimit;
-      // Count knowledge units across user's workspaces
-      const userWorkspaces = await db.workspaceMember.findMany({
-        where: { userId },
-        select: { workspaceId: true },
-      });
-      const workspaceIds = userWorkspaces.map((w) => w.workspaceId);
+    let used = 0;
+    let limit = 0;
 
-      if (workspaceIds.length > 0) {
-        used = await db.knowledge.count({
+    switch (limitType) {
+      case "apiRequests": {
+        limit = plan.apiRequestsPerMonth;
+        // Count this month's usage events
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        used = await db.usageEvent.count({
           where: {
-            workspaceId: { in: workspaceIds },
-            isActive: true,
+            userId,
+            createdAt: { gte: startOfMonth },
           },
         });
+        break;
       }
-      break;
-    }
 
-    case "teamMembers": {
-      limit = plan.teamMembersLimit;
-      // Count the total members across all workspaces the user is in
-      const userWorkspaceIds = await db.workspaceMember.findMany({
-        where: { userId },
-        select: { workspaceId: true },
-      });
-      const wsIds = userWorkspaceIds.map((w) => w.workspaceId);
-
-      if (wsIds.length > 0) {
-        // Get the workspace with the most members (the user's primary workspace)
-        const memberCounts = await db.workspaceMember.groupBy({
-          by: ["workspaceId"],
-          where: { workspaceId: { in: wsIds } },
-          _count: { id: true },
+      case "apiKeys": {
+        limit = plan.apiKeysLimit;
+        used = await db.apiKey.count({
+          where: {
+            userId,
+            isRevoked: false,
+          },
         });
-        // Use the max member count as the "used" amount
-        used = Math.max(0, ...memberCounts.map((m) => m._count.id));
+        break;
       }
-      break;
+
+      case "knowledgeUnits": {
+        limit = plan.knowledgeUnitsLimit;
+        // Count knowledge units across user's workspaces
+        const userWorkspaces = await db.workspaceMember.findMany({
+          where: { userId },
+          select: { workspaceId: true },
+        });
+        const workspaceIds = userWorkspaces.map((w) => w.workspaceId);
+
+        if (workspaceIds.length > 0) {
+          used = await db.knowledge.count({
+            where: {
+              workspaceId: { in: workspaceIds },
+              isActive: true,
+            },
+          });
+        }
+        break;
+      }
+
+      case "teamMembers": {
+        limit = plan.teamMembersLimit;
+        // Count the total members across all workspaces the user is in
+        const userWorkspaceIds = await db.workspaceMember.findMany({
+          where: { userId },
+          select: { workspaceId: true },
+        });
+        const wsIds = userWorkspaceIds.map((w) => w.workspaceId);
+
+        if (wsIds.length > 0) {
+          // Get the workspace with the most members (the user's primary workspace)
+          const memberCounts = await db.workspaceMember.groupBy({
+            by: ["workspaceId"],
+            where: { workspaceId: { in: wsIds } },
+            _count: { id: true },
+          });
+          // Use the max member count as the "used" amount
+          used = Math.max(0, ...memberCounts.map((m) => m._count.id));
+        }
+        break;
+      }
+
+      case "workspaces": {
+        limit = plan.workspacesLimit;
+        used = await db.workspaceMember.count({
+          where: { userId },
+        });
+        break;
+      }
     }
 
-    case "workspaces": {
-      limit = plan.workspacesLimit;
-      used = await db.workspaceMember.count({
-        where: { userId },
-      });
-      break;
-    }
+    // -1 means unlimited
+    const isUnlimited = limit === -1;
+    const remaining = isUnlimited ? Infinity : Math.max(0, limit - used);
+    const allowed = isUnlimited || used < limit;
+
+    return {
+      allowed,
+      used,
+      limit: isUnlimited ? -1 : limit,
+      remaining: isUnlimited ? -1 : remaining,
+      limitType,
+    };
+  } catch (error) {
+    console.error('[checkUserLimit]', error)
+    throw new Error(`Failed to checkUserLimit: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  // -1 means unlimited
-  const isUnlimited = limit === -1;
-  const remaining = isUnlimited ? Infinity : Math.max(0, limit - used);
-  const allowed = isUnlimited || used < limit;
-
-  return {
-    allowed,
-    used,
-    limit: isUnlimited ? -1 : limit,
-    remaining: isUnlimited ? -1 : remaining,
-    limitType,
-  };
 }
 
 /**
  * Get current usage vs limits for a user across all limit types.
  */
 export async function getUserUsage(userId: string): Promise<PlanUsage> {
-  const [apiRequests, apiKeys, knowledgeUnits, teamMembers, workspaces] = await Promise.all([
-    checkUserLimit(userId, "apiRequests"),
-    checkUserLimit(userId, "apiKeys"),
-    checkUserLimit(userId, "knowledgeUnits"),
-    checkUserLimit(userId, "teamMembers"),
-    checkUserLimit(userId, "workspaces"),
-  ]);
+  try {
+    const [apiRequests, apiKeys, knowledgeUnits, teamMembers, workspaces] = await Promise.all([
+      checkUserLimit(userId, "apiRequests"),
+      checkUserLimit(userId, "apiKeys"),
+      checkUserLimit(userId, "knowledgeUnits"),
+      checkUserLimit(userId, "teamMembers"),
+      checkUserLimit(userId, "workspaces"),
+    ]);
 
-  return {
-    apiRequests: { used: apiRequests.used, limit: apiRequests.limit },
-    apiKeys: { used: apiKeys.used, limit: apiKeys.limit },
-    knowledgeUnits: { used: knowledgeUnits.used, limit: knowledgeUnits.limit },
-    teamMembers: { used: teamMembers.used, limit: teamMembers.limit },
-    workspaces: { used: workspaces.used, limit: workspaces.limit },
-  };
+    return {
+      apiRequests: { used: apiRequests.used, limit: apiRequests.limit },
+      apiKeys: { used: apiKeys.used, limit: apiKeys.limit },
+      knowledgeUnits: { used: knowledgeUnits.used, limit: knowledgeUnits.limit },
+      teamMembers: { used: teamMembers.used, limit: teamMembers.limit },
+      workspaces: { used: workspaces.used, limit: workspaces.limit },
+    };
+  } catch (error) {
+    console.error('[getUserUsage]', error)
+    throw new Error(`Failed to getUserUsage: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
 /**
@@ -448,38 +478,43 @@ export async function upgradeUserPlan(
   userId: string,
   planName: string
 ): Promise<UserPlanDetails | null> {
-  // Validate plan name (simplified plan field)
-  const validPlans: PlanName[] = ["free", "pro", "ultra", "enterprise"];
-  if (!validPlans.includes(planName as PlanName)) {
-    throw new Error(`Invalid plan name: ${planName}. Valid plans: ${validPlans.join(", ")}`);
+  try {
+    // Validate plan name (simplified plan field)
+    const validPlans: PlanName[] = ["free", "pro", "ultra", "enterprise"];
+    if (!validPlans.includes(planName as PlanName)) {
+      throw new Error(`Invalid plan name: ${planName}. Valid plans: ${validPlans.join(", ")}`);
+    }
+
+    // Verify the subscription plan exists
+    const subscriptionPlanName = userPlanToSubscriptionPlan(planName);
+    const plan = await db.subscriptionPlan.findUnique({
+      where: { name: subscriptionPlanName },
+    });
+
+    if (!plan) {
+      throw new Error(`Subscription plan not found: ${subscriptionPlanName}`);
+    }
+
+    if (!plan.isActive) {
+      throw new Error(`Subscription plan is not available: ${subscriptionPlanName}`);
+    }
+
+    // Update the user's plan
+    const updatedUser = await db.user.update({
+      where: { id: userId },
+      data: {
+        plan: planName,
+        currentPeriodEnd: planName === "free"
+          ? null
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      },
+    });
+
+    return await getUserPlan(updatedUser.id);
+  } catch (error) {
+    console.error('[upgradeUserPlan]', error)
+    throw new Error(`Failed to upgradeUserPlan: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  // Verify the subscription plan exists
-  const subscriptionPlanName = userPlanToSubscriptionPlan(planName);
-  const plan = await db.subscriptionPlan.findUnique({
-    where: { name: subscriptionPlanName },
-  });
-
-  if (!plan) {
-    throw new Error(`Subscription plan not found: ${subscriptionPlanName}`);
-  }
-
-  if (!plan.isActive) {
-    throw new Error(`Subscription plan is not available: ${subscriptionPlanName}`);
-  }
-
-  // Update the user's plan
-  const updatedUser = await db.user.update({
-    where: { id: userId },
-    data: {
-      plan: planName,
-      currentPeriodEnd: planName === "free"
-        ? null
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-    },
-  });
-
-  return getUserPlan(updatedUser.id);
 }
 
 /**
@@ -491,55 +526,60 @@ export async function downgradeUserPlan(
   userId: string,
   planName: string
 ): Promise<UserPlanDetails | null> {
-  // Validate plan name
-  const validPlans: PlanName[] = ["free", "pro", "ultra", "enterprise"];
-  if (!validPlans.includes(planName as PlanName)) {
-    throw new Error(`Invalid plan name: ${planName}. Valid plans: ${validPlans.join(", ")}`);
+  try {
+    // Validate plan name
+    const validPlans: PlanName[] = ["free", "pro", "ultra", "enterprise"];
+    if (!validPlans.includes(planName as PlanName)) {
+      throw new Error(`Invalid plan name: ${planName}. Valid plans: ${validPlans.join(", ")}`);
+    }
+
+    // Get current plan to verify it's actually a downgrade
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
+    });
+
+    if (!user) return null;
+
+    const planOrder: Record<string, number> = {
+      free: 0,
+      pro: 1,
+      ultra: 2,
+      enterprise: 3,
+    };
+
+    const currentLevel = planOrder[user.plan] ?? 0;
+    const targetLevel = planOrder[planName] ?? 0;
+
+    if (targetLevel >= currentLevel) {
+      throw new Error(
+        `Cannot downgrade from ${user.plan} to ${planName}. Target plan must be lower tier. Use upgradeUserPlan instead.`
+      );
+    }
+
+    // Verify the subscription plan exists
+    const subscriptionPlanName = userPlanToSubscriptionPlan(planName);
+    const plan = await db.subscriptionPlan.findUnique({
+      where: { name: subscriptionPlanName },
+    });
+
+    if (!plan) {
+      throw new Error(`Subscription plan not found: ${subscriptionPlanName}`);
+    }
+
+    // Update the user's plan
+    // In production: schedule for end of billing period, not immediate
+    const updatedUser = await db.user.update({
+      where: { id: userId },
+      data: {
+        plan: planName,
+        currentPeriodEnd: planName === "free" ? null : user.currentPeriodEnd,
+      },
+    });
+
+    return await getUserPlan(updatedUser.id);
+  } catch (error) {
+    console.error('[downgradeUserPlan]', error)
+    throw new Error(`Failed to downgradeUserPlan: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  // Get current plan to verify it's actually a downgrade
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { plan: true },
-  });
-
-  if (!user) return null;
-
-  const planOrder: Record<string, number> = {
-    free: 0,
-    pro: 1,
-    ultra: 2,
-    enterprise: 3,
-  };
-
-  const currentLevel = planOrder[user.plan] ?? 0;
-  const targetLevel = planOrder[planName] ?? 0;
-
-  if (targetLevel >= currentLevel) {
-    throw new Error(
-      `Cannot downgrade from ${user.plan} to ${planName}. Target plan must be lower tier. Use upgradeUserPlan instead.`
-    );
-  }
-
-  // Verify the subscription plan exists
-  const subscriptionPlanName = userPlanToSubscriptionPlan(planName);
-  const plan = await db.subscriptionPlan.findUnique({
-    where: { name: subscriptionPlanName },
-  });
-
-  if (!plan) {
-    throw new Error(`Subscription plan not found: ${subscriptionPlanName}`);
-  }
-
-  // Update the user's plan
-  // In production: schedule for end of billing period, not immediate
-  const updatedUser = await db.user.update({
-    where: { id: userId },
-    data: {
-      plan: planName,
-      currentPeriodEnd: planName === "free" ? null : user.currentPeriodEnd,
-    },
-  });
-
-  return getUserPlan(updatedUser.id);
 }

@@ -7,6 +7,7 @@ import {
   deleteApiKey,
   updateApiKey,
 } from "@/lib/api-keys";
+import { safeParseBody } from "@/lib/api-error";
 
 // ─── GET /api/keys/[id] ─────────────────────────────────────────────────────
 // Get a single API key by ID
@@ -144,7 +145,9 @@ export async function PATCH(
       );
     }
 
-    const body = await request.json();
+    const parsed = await safeParseBody(request);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
 
     // Validate fields if provided
     if (body.name !== undefined) {

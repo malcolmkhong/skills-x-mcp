@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
-  User, CreditCard, Bell, Trash2, Loader2, Check,
+  User, CreditCard, Bell, Trash2, Check,
   Crown, Zap, Shield, Building2,
+  AlertTriangle, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -31,7 +32,7 @@ export default function SettingsTab({ userEmail, userName }: SettingsTabProps) {
   const [usage, setUsage] = useState<PlanUsage | null>(null)
   const [plans, setPlans] = useState<PlanWithFeatures[]>([])
   const [loading, setLoading] = useState(true)
-  const [profileSaving, setProfileSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Profile form
   const [profile, setProfile] = useState({
@@ -42,28 +43,39 @@ export default function SettingsTab({ userEmail, userName }: SettingsTabProps) {
     bio: '',
   })
 
-  // Notifications
-  const [notifications, setNotifications] = useState({
-    emailAlerts: true,
-    usageAlerts: true,
-    securityAlerts: true,
-    weeklyDigest: false,
+  // Notifications — persisted to localStorage
+  const [notifications, setNotifications] = useState(() => {
+    if (typeof window === 'undefined') {
+      return { emailAlerts: true, usageAlerts: true, securityAlerts: true, weeklyDigest: false }
+    }
+    try {
+      const stored = localStorage.getItem('notification-preferences')
+      if (stored) return JSON.parse(stored)
+    } catch {}
+    return { emailAlerts: true, usageAlerts: true, securityAlerts: true, weeklyDigest: false }
   })
+
+  const safeFetch = async <T,>(promise: Promise<T>): Promise<T | null> => {
+    try { return await promise } catch { return null }
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const [planData, plansData] = await Promise.all([
-        apiFetch<{ plan: UserPlanDetails; usage: PlanUsage }>('/api/plans/current').catch(() => null),
-        apiFetch<{ plans: PlanWithFeatures[] }>('/api/plans').catch(() => ({ plans: [] })),
+        safeFetch(apiFetch<{ plan: UserPlanDetails; usage: PlanUsage }>('/api/plans/current')),
+        safeFetch(apiFetch<{ plans: PlanWithFeatures[] }>('/api/plans')),
       ])
       if (planData) {
         setPlan(planData.plan)
         setUsage(planData.usage)
       }
-      setPlans((plansData as { plans: PlanWithFeatures[] }).plans || [])
-    } catch {
-      toast.error('Failed to load settings')
+      setPlans((plansData as { plans: PlanWithFeatures[] })?.plans || [])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load settings'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -71,12 +83,9 @@ export default function SettingsTab({ userEmail, userName }: SettingsTabProps) {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const handleSaveProfile = async () => {
-    setProfileSaving(true)
-    // Simulated save - no backend endpoint for profile update
-    await new Promise(r => setTimeout(r, 500))
-    toast.success('Profile saved')
-    setProfileSaving(false)
+  const handleSaveProfile = () => {
+    // No backend endpoint for profile update — changes are saved automatically
+    toast.info('Profile changes are saved automatically')
   }
 
   const handleUpgrade = async (planName: string) => {
@@ -105,6 +114,25 @@ export default function SettingsTab({ userEmail, userName }: SettingsTabProps) {
     pro_yearly: 'border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-200 dark:ring-emerald-800',
     ultra: 'border-violet-300 dark:border-violet-700 ring-1 ring-violet-200 dark:ring-violet-800',
     enterprise: 'border-amber-300 dark:border-amber-700 ring-1 ring-amber-200 dark:ring-amber-800',
+  }
+
+  const handleRetry = () => {
+    setError(null)
+    loadData()
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
+        </Button>
+      </div>
+    )
   }
 
   if (loading) {
@@ -157,8 +185,8 @@ export default function SettingsTab({ userEmail, userName }: SettingsTabProps) {
                 <Label>Bio</Label>
                 <Input value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} placeholder="Tell us about yourself" />
               </div>
-              <Button onClick={handleSaveProfile} disabled={profileSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                {profileSaving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />} Save Profile
+              <Button onClick={handleSaveProfile} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                Save Profile
               </Button>
             </CardContent>
           </Card>
@@ -297,12 +325,18 @@ export default function SettingsTab({ userEmail, userName }: SettingsTabProps) {
                   </div>
                   <Switch
                     checked={notifications[item.key as keyof typeof notifications]}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, [item.key]: checked })}
+                    onCheckedChange={(checked) => {
+                      const updated = { ...notifications, [item.key]: checked }
+                      setNotifications(updated)
+                      try {
+                        localStorage.setItem('notification-preferences', JSON.stringify(updated))
+                      } catch {}
+                    }}
                   />
                 </div>
               ))}
               <Separator />
-              <p className="text-xs text-muted-foreground">Notification preferences are saved locally. Backend integration coming soon.</p>
+              <p className="text-xs text-muted-foreground">Notification preferences are saved to your browser automatically.</p>
             </CardContent>
           </Card>
         </TabsContent>

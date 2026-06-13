@@ -267,5 +267,10 @@ async function seed() {
 }
 
 export async function seedDatabase() {
-  return seed();
+  try {
+    return await seed();
+  } catch (error) {
+    console.error('[seedDatabase]', error)
+    throw new Error(`Failed to seedDatabase: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
