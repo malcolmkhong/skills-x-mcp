@@ -1,6 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { getServerSession as nextAuthGetServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 
 // ─── API Key Utilities ──────────────────────────────────────────────────────
@@ -34,8 +33,6 @@ export function verifyApiKey(key: string, hash: string): boolean {
 /**
  * Validate an API key from request headers against the database.
  * The middleware sets `x-api-key` header when a valid-format API key is provided.
- *
- * @returns The API key record from the database if valid, null otherwise
  */
 export async function validateApiKeyFromHeaders(
   headers: Headers
@@ -101,6 +98,7 @@ export async function validateApiKeyFromHeaders(
 
 interface ExtendedSession {
   user: {
+    id?: string;
     name?: string | null;
     email?: string | null;
     image?: string | null;
@@ -110,19 +108,38 @@ interface ExtendedSession {
 }
 
 /**
- * Get the server session with our extended type
+ * Get the server session using Supabase Auth
  */
 export async function getServerSession(): Promise<ExtendedSession | null> {
-  const session = await nextAuthGetServerSession(authOptions);
-  if (!session) return null;
+  const supabase = await createClient();
+  const { data: { user: sbUser } } = await supabase.auth.getUser();
+
+  if (!sbUser) return null;
+
+  const meta = sbUser.user_metadata ?? {};
+
+  // Look up the user in our local DB for role/plan
+  let role = meta.role ?? "user";
+  let plan = meta.plan ?? "free";
+
+  const dbUser = await db.user.findUnique({
+    where: { email: sbUser.email ?? "" },
+    select: { role: true, plan: true },
+  });
+
+  if (dbUser) {
+    role = dbUser.role;
+    plan = dbUser.plan;
+  }
 
   return {
     user: {
-      name: session.user?.name ?? null,
-      email: session.user?.email ?? null,
-      image: session.user?.image ?? null,
-      role: (session.user as Record<string, unknown>)?.role as string ?? "user",
-      plan: (session.user as Record<string, unknown>)?.plan as string ?? "free",
+      id: sbUser.id,
+      name: meta.full_name ?? meta.name ?? sbUser.email?.split("@")[0] ?? null,
+      email: sbUser.email ?? null,
+      image: meta.avatar_url ?? meta.picture ?? null,
+      role,
+      plan,
     },
   };
 }
@@ -141,8 +158,6 @@ export async function requireAuth(): Promise<ExtendedSession> {
 /**
  * Get authenticated identity from either session or API key.
  * This is the primary auth check for API routes that support both methods.
- *
- * @returns Object with auth method and user info, or null if not authenticated
  */
 export async function getAuthIdentity(
   headers: Headers
@@ -169,10 +184,10 @@ export async function getAuthIdentity(
     };
   }
 
-  // Try session
+  // Try Supabase session
   const session = await getServerSession();
   if (session) {
-    // Look up user ID from email
+    // Look up user ID from email or use Supabase UID
     const user = session.user.email
       ? await db.user.findUnique({
           where: { email: session.user.email },
@@ -183,7 +198,7 @@ export async function getAuthIdentity(
     return {
       method: "session",
       session,
-      userId: user?.id,
+      userId: session.user.id ?? user?.id,
     };
   }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { SessionProvider } from 'next-auth/react'
+import { AuthProvider } from '@/lib/supabase/auth-context'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -18,7 +18,7 @@ const queryClient = new QueryClient({
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <SessionProvider refetchInterval={5 * 60} refetchOnWindowFocus={true}>
+      <AuthProvider>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -28,7 +28,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           {children}
           <Toaster position="top-right" richColors closeButton />
         </ThemeProvider>
-      </SessionProvider>
+      </AuthProvider>
     </QueryClientProvider>
   )
 }

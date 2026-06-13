@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { updateSession } from "@/lib/supabase/middleware";
 
 // MCP-related API routes that accept API key as alternative auth
 const MCP_API_ROUTES = [
@@ -18,13 +18,11 @@ const PUBLIC_API_ROUTES = [
 
 // Exact public routes (must match exactly, not just prefix)
 const EXACT_PUBLIC_ROUTES = [
-  "/api/plans", // Plans listing is public so users can see pricing before signing up
-  "/api/keys/validate", // Key validation is public — used by MCP server to validate keys
+  "/api/plans",
+  "/api/keys/validate",
 ];
 
 // Auth-optional routes: accessible without auth, but if API key is provided it will be processed.
-// These are knowledge read endpoints that the MCP server calls for unauthenticated clients.
-// The route handlers already handle the case where no identity is present.
 const AUTH_OPTIONAL_ROUTES = [
   "/api/knowledge/search",
   "/api/knowledge/context",
@@ -34,22 +32,17 @@ const AUTH_OPTIONAL_ROUTES = [
  * Validate API key format (starts with ixk_ and has sufficient length)
  */
 function isValidApiKeyFormat(key: string): boolean {
-  // API keys have format: ixk_ followed by at least 24 hex characters
   return /^ixk_[0-9a-f]{16,}$/.test(key);
 }
 
 /**
  * Check if a route is a knowledge read-by-ID route (GET /api/knowledge/[id])
- * These should also be auth-optional for MCP unauthenticated access.
  */
 function isKnowledgeReadRoute(pathname: string, method: string): boolean {
-  // GET /api/knowledge (list) and GET /api/knowledge/[id] (get single)
   if (method !== "GET") return false;
   if (pathname === "/api/knowledge") return true;
-  // Match /api/knowledge/{id} but not /api/knowledge/search, /api/knowledge/context, etc.
   if (pathname.startsWith("/api/knowledge/")) {
     const suffix = pathname.slice("/api/knowledge/".length);
-    // If it doesn't contain another slash and isn't a known sub-route, it's an ID
     if (!suffix.includes("/") && !["search", "context", "stats", "ingest", "rebuild", "similar"].includes(suffix)) {
       return true;
     }
@@ -61,19 +54,23 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const method = request.method;
 
-  // Only apply to API routes
+  // ─── Refresh Supabase auth session on every request ───────────────
+  // This ensures the Supabase cookies are always up to date.
+  const { response, user: supabaseUser } = await updateSession(request);
+
+  // Only apply auth checks to API routes
   if (!pathname.startsWith("/api/")) {
-    return NextResponse.next();
+    return response;
   }
 
   // Allow public API routes (prefix match)
   if (PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next();
+    return response;
   }
 
-  // Allow exact public routes (exact match only)
+  // Allow exact public routes
   if (EXACT_PUBLIC_ROUTES.some((route) => pathname === route)) {
-    return NextResponse.next();
+    return response;
   }
 
   // For auth-optional routes, check for API key but allow through without auth
@@ -88,46 +85,27 @@ export async function middleware(request: NextRequest) {
   if (isMcpRoute) {
     const authHeader = request.headers.get("authorization");
     if (authHeader) {
-      // Extract the API key from "Bearer ixk_..." format
       const apiKey = authHeader.startsWith("Bearer ")
         ? authHeader.slice(7)
         : authHeader;
 
-      // Validate API key format before passing to route handler
       if (isValidApiKeyFormat(apiKey)) {
-        const requestHeaders = new Headers(request.headers);
-        requestHeaders.set("x-api-key", apiKey);
-        requestHeaders.set("x-api-key-prefix", apiKey.slice(0, 8));
-
-        return NextResponse.next({
-          request: {
-            headers: requestHeaders,
-          },
-        });
+        response.headers.set("x-api-key", apiKey);
+        response.headers.set("x-api-key-prefix", apiKey.slice(0, 8));
+        return response;
       }
     }
   }
 
   // Auth-optional routes: allow through even without auth
   if (isAuthOptional) {
-    return NextResponse.next();
+    return response;
   }
 
-  // Check for NextAuth JWT token
-  try {
-    const token = await getToken({
-      req: request,
-      secret:
-        process.env.NEXTAUTH_SECRET ||
-        "industryx-dev-secret-change-in-production-2024",
-    });
-
-    if (token) {
-      // Authenticated via session
-      return NextResponse.next();
-    }
-  } catch {
-    // Token verification failed, continue to unauthorized response
+  // Check for Supabase authenticated user (set by updateSession)
+  if (supabaseUser) {
+    // Authenticated via Supabase session
+    return response;
   }
 
   // Unauthenticated - return 401 for API routes
@@ -144,11 +122,12 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all API routes except:
-     * - /api/auth (NextAuth routes)
-     * - /api/health (health check)
-     * - /api/seed (database seeder)
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - auth/callback (Supabase auth callback)
      */
-    "/api/((?!auth|health|seed).*)",
+    "/((?!_next/static|_next/image|favicon.ico|auth/callback).*)",
   ],
 };

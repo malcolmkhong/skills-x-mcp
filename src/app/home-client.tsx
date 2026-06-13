@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useAuth } from '@/lib/supabase/auth-context'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 import {
@@ -63,15 +63,14 @@ function SidebarNav({ activeTab, onNavigate }: { activeTab: NavTabId; onNavigate
 }
 
 export default function HomePage() {
-  const { data: session, status } = useSession()
+  const { user, status, signOut } = useAuth()
   const { resolvedTheme, setTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<NavTabId>('overview')
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const seededRef = useRef(false)
 
-  // Seed database on first load if needed (runs for both authenticated and unauthenticated)
-  // This ensures the demo user exists before anyone tries to sign in
+  // Seed database on first load if needed
   useEffect(() => {
     if (seededRef.current) return
     let cancelled = false
@@ -101,6 +100,11 @@ export default function HomePage() {
     setMobileOpen(false)
   }, [])
 
+  const handleSignOut = useCallback(async () => {
+    await signOut()
+    window.location.href = '/'
+  }, [signOut])
+
   // Loading state
   if (status === 'loading') {
     return (
@@ -110,14 +114,13 @@ export default function HomePage() {
     )
   }
 
-  // Unauthenticated — show landing page (NOT a login wall)
-  if (status === 'unauthenticated' || !session) {
+  // Unauthenticated — show landing page
+  if (status === 'unauthenticated' || !user) {
     return <LandingPage />
   }
 
   // ─── Authenticated — show dashboard ─────────────────────────────────
-  const user = session.user
-  const userName = user?.name || user?.email || 'User'
+  const userName = user.name || user.email || 'User'
   const userInitial = userName[0].toUpperCase()
 
   const renderTab = () => {
@@ -129,7 +132,7 @@ export default function HomePage() {
       case 'analytics': return <AnalyticsTab />
       case 'mcp': return <McpTab />
       case 'workspaces': return <WorkspacesTab />
-      case 'settings': return <SettingsTab userEmail={user?.email} userName={user?.name} />
+      case 'settings': return <SettingsTab userEmail={user.email} userName={user.name} />
       default: return <OverviewTab onNavigate={handleNavigate} />
     }
   }
@@ -207,7 +210,7 @@ export default function HomePage() {
                     <Settings className="h-3.5 w-3.5 mr-2" /> Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-xs text-red-600" onClick={() => signOut({ callbackUrl: '/' })}>
+                  <DropdownMenuItem className="text-xs text-red-600" onClick={handleSignOut}>
                     <LogOut className="h-3.5 w-3.5 mr-2" /> Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -223,7 +226,7 @@ export default function HomePage() {
 
           <footer className="h-8 border-t border-border bg-card flex items-center justify-center px-4 shrink-0">
             <p className="text-[10px] text-muted-foreground">
-              IndustryX Knowledge MCP Platform &middot; v1.1.0 &middot; &copy; {new Date().getFullYear()}
+              IndustryX Knowledge MCP Platform &middot; v1.2.0 &middot; &copy; {new Date().getFullYear()}
             </p>
           </footer>
         </div>
@@ -244,7 +247,7 @@ export default function HomePage() {
           </SheetHeader>
           <SidebarNav activeTab={activeTab} onNavigate={handleNavigate} />
           <div className="p-2 border-t border-border">
-            <Button variant="ghost" className="w-full h-8 text-xs justify-start text-red-600" onClick={() => { setMobileOpen(false); signOut({ callbackUrl: '/' }) }}>
+            <Button variant="ghost" className="w-full h-8 text-xs justify-start text-red-600" onClick={() => { setMobileOpen(false); handleSignOut() }}>
               <LogOut className="h-3.5 w-3.5" />
               <span className="ml-2">Sign Out</span>
             </Button>
